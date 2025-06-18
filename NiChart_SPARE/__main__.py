@@ -9,38 +9,14 @@ T2B (Diabetes), SM (Smoking), OB (Obesity)
 
 import argparse
 import sys
-import os
-import logging
-from pathlib import Path
-
-# Import pipeline modules
+import pandas as pd
 from .pipelines import spare_ad, spare_ba, spare_ht
 
-def setup_logging(verbose=False):
-    """Setup logging configuration"""
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
-
-def validate_file_path(file_path, description):
-    """Validate that a file path exists"""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"{description} file not found: {file_path}")
-    return file_path
-
-def validate_directory_path(dir_path, description):
-    """Validate that a directory path exists and is writable"""
-    dir_path = Path(dir_path)
-    if not dir_path.exists():
-        dir_path.mkdir(parents=True, exist_ok=True)
-    if not os.access(dir_path, os.W_OK):
-        raise PermissionError(f"Cannot write to {description} directory: {dir_path}")
-    return str(dir_path)
+def load_csv_data(file_path):
+    """Load CSV data and return dataframe"""
+    df = pd.read_csv(file_path)
+    print(f"Loaded data: {len(df)} samples, {len(df.columns)} columns")
+    return df
 
 def get_pipeline_module(spare_type):
     """Get the appropriate pipeline module based on SPARE type"""
@@ -50,31 +26,190 @@ def get_pipeline_module(spare_type):
         'AD': spare_ad,
         'BA': spare_ba,
         'HT': spare_ht,
-        # Add other SPARE types as they become available
-        # 'HL': spare_hl,
-        # 'T2B': spare_t2b,
-        # 'SM': spare_sm,
-        # 'OB': spare_ob,
     }
     
     if spare_type not in pipeline_map:
-        raise ValueError(f"Unsupported SPARE type: {spare_type}. "
-                        f"Supported types: {list(pipeline_map.keys())}")
+        raise ValueError(f"Unsupported SPARE type: {spare_type}")
     
     return pipeline_map[spare_type]
+
+def is_regression_model(spare_type):
+    """Check if the SPARE type uses regression (continuous target)"""
+    regression_types = ['BA']  # Brain Age is continuous
+    return spare_type.upper() in regression_types
+
+def train_model(input_file, model_path, spare_type, target_column, kernel, tune_hyperparameters, final_model):
+    """Train model using the pipeline functions"""
+    
+    # Load data
+    print("Loading training data...")
+    df = load_csv_data(input_file)
+    
+    # Validate target column exists
+    if target_column not in df.columns:
+        raise ValueError(f"Target column '{target_column}' not found. Available columns: {list(df.columns)}")
+    
+    # Get pipeline module
+    pipeline_module = get_pipeline_module(spare_type)
+    is_regression = is_regression_model(spare_type)
+    
+    if is_regression:
+        # Regression model (BA - Brain Age)
+        if final_model and tune_hyperparameters:
+            # Complete workflow: tuning + final model
+            print("Step 1: Hyperparameter tuning...")
+            model_tuned, scaler_tuned, info_tuned = pipeline_module.train_svr_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=True
+            )
+            
+            print(f"Best parameters found: {info_tuned['best_params']}")
+            print(f"CV R² score: {info_tuned['cv_score']:.3f}")
+            
+            print("Step 2: Training final model on entire dataset...")
+            final_model, final_scaler, final_info = pipeline_module.train_final_model(
+                dataframe=df,
+                target_column=target_column,
+                best_params=info_tuned['best_params'],
+                kernel=kernel
+            )
+            
+            # Save final model
+            pipeline_module.save_model(final_model, final_scaler, final_info, model_path)
+            print(f"Final model saved to: {model_path}")
+            
+        elif tune_hyperparameters:
+            # Only hyperparameter tuning
+            print("Performing hyperparameter tuning...")
+            model, scaler, info = pipeline_module.train_svr_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=True
+            )
+            
+            # Save tuned model
+            pipeline_module.save_model(model, scaler, info, model_path)
+            print(f"Tuned model saved to: {model_path}")
+            
+        else:
+            # Standard training
+            print("Training model with default parameters...")
+            model, scaler, info = pipeline_module.train_svr_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=False
+            )
+            
+            # Save model
+            pipeline_module.save_model(model, scaler, info, model_path)
+            print(f"Model saved to: {model_path}")
+    
+    else:
+        # Classification model (AD, HT)
+        if final_model and tune_hyperparameters:
+            # Complete workflow: tuning + final model
+            print("Step 1: Hyperparameter tuning...")
+            model_tuned, scaler_tuned, encoder_tuned, info_tuned = pipeline_module.train_svc_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=True
+            )
+            
+            print(f"Best parameters found: {info_tuned['best_params']}")
+            print(f"CV accuracy: {info_tuned['cv_score']:.3f}")
+            
+            print("Step 2: Training final model on entire dataset...")
+            final_model, final_scaler, final_encoder, final_info = pipeline_module.train_final_model(
+                dataframe=df,
+                target_column=target_column,
+                best_params=info_tuned['best_params'],
+                kernel=kernel
+            )
+            
+            # Save final model
+            pipeline_module.save_model(final_model, final_scaler, final_encoder, final_info, model_path)
+            print(f"Final model saved to: {model_path}")
+            
+        elif tune_hyperparameters:
+            # Only hyperparameter tuning
+            print("Performing hyperparameter tuning...")
+            model, scaler, encoder, info = pipeline_module.train_svc_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=True
+            )
+            
+            # Save tuned model
+            pipeline_module.save_model(model, scaler, encoder, info, model_path)
+            print(f"Tuned model saved to: {model_path}")
+            
+        else:
+            # Standard training
+            print("Training model with default parameters...")
+            model, scaler, encoder, info = pipeline_module.train_svc_model(
+                dataframe=df,
+                target_column=target_column,
+                kernel=kernel,
+                tune_hyperparameters=False
+            )
+            
+            # Save model
+            pipeline_module.save_model(model, scaler, encoder, info, model_path)
+            print(f"Model saved to: {model_path}")
+
+def predict_model(input_file, model_path, output_file, spare_type):
+    """Make predictions using trained model"""
+    
+    # Load data
+    print("Loading prediction data...")
+    df = load_csv_data(input_file)
+    
+    # Get pipeline module
+    pipeline_module = get_pipeline_module(spare_type)
+    is_regression = is_regression_model(spare_type)
+    
+    # Load model
+    print("Loading trained model...")
+    if is_regression:
+        # Regression model
+        model, scaler, info = pipeline_module.load_model(model_path)
+        predictions = pipeline_module.predict_svr(model, scaler, df)
+    else:
+        # Classification model
+        model, scaler, encoder, info = pipeline_module.load_model(model_path)
+        predictions = pipeline_module.predict_svc(model, scaler, df, encoder)
+    
+    # Create output dataframe
+    output_df = df.copy()
+    output_df['predicted_target'] = predictions
+    
+    # Save predictions
+    output_df.to_csv(output_file, index=False)
+    print(f"Predictions saved to: {output_file}")
 
 def main():
     """Main entry point for NiChart_SPARE"""
     parser = argparse.ArgumentParser(
         description="NiChart_SPARE - SPARE scores calculation from Brain ROI Volumes",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Training
-  NiChart_SPARE -a trainer -t AD -i /path/to/input_file.csv -mo /path/to/model.pkl.gz -v True
+  # Training with default parameters
+  NiChart_SPARE -a trainer -t AD -i input.csv -mo model.pkl -tc target_column
+  
+  # Training with hyperparameter tuning
+  NiChart_SPARE -a trainer -t BA -i input.csv -mo model.pkl -tc target_column --tune
+  
+  # Training with hyperparameter tuning + final model
+  NiChart_SPARE -a trainer -t HT -i input.csv -mo model.pkl -tc target_column --tune --final
   
   # Inference
-  NiChart_SPARE -a inference -t AD -i /path/to/test_file.csv -mo /path/to/model.pkl.gz -v False -o /path/to/output.csv
+  NiChart_SPARE -a inference -t AD -i test.csv -mo model.pkl -o predictions.csv
         """
     )
     
@@ -96,86 +231,63 @@ Examples:
                        required=True,
                        help='Model file path (for training: output path, for inference: input path)')
     
-    # Optional arguments
-    parser.add_argument('-v', '--verbose',
-                       type=str,
-                       default='False',
-                       choices=['True', 'False'],
-                       help='Verbose output (True/False)')
+    # Training-specific arguments
+    parser.add_argument('-tc', '--target_column',
+                       help='Target column name (required for training)')
     
+    parser.add_argument('--kernel',
+                       default='rbf',
+                       choices=['linear', 'poly', 'rbf', 'sigmoid'],
+                       help='SVC kernel type (default: rbf)')
+    
+    parser.add_argument('--tune',
+                       action='store_true',
+                       help='Perform hyperparameter tuning with 5-fold CV')
+    
+    parser.add_argument('--final',
+                       action='store_true',
+                       help='Train final model on entire dataset after tuning')
+    
+    # Inference-specific arguments
     parser.add_argument('-o', '--output',
                        help='Output file path (required for inference)')
     
     # Parse arguments
     args = parser.parse_args()
     
-    # Setup logging
-    verbose = args.verbose.lower() == 'true'
-    setup_logging(verbose)
-    logger = logging.getLogger(__name__)
-    
     try:
-        # Validate input file
-        input_file = validate_file_path(args.input, "Input")
-        logger.info(f"Input file: {input_file}")
-        
-        # Validate model path
-        if args.action == 'trainer':
-            # For training, ensure the directory exists
-            model_dir = os.path.dirname(args.model)
-            if model_dir:
-                validate_directory_path(model_dir, "Model output")
-        else:
-            # For inference, ensure the model file exists
-            validate_file_path(args.model, "Model")
-        
-        logger.info(f"Model path: {args.model}")
-        
-        # Validate output file for inference
-        if args.action == 'inference':
-            if not args.output:
-                raise ValueError("Output file path (-o) is required for inference")
-            output_dir = os.path.dirname(args.output)
-            if output_dir:
-                validate_directory_path(output_dir, "Output")
-            logger.info(f"Output file: {args.output}")
-        
-        # Get appropriate pipeline module
-        pipeline_module = get_pipeline_module(args.type)
-        logger.info(f"Using pipeline for SPARE type: {args.type}")
-        
         # Execute the appropriate action
         if args.action == 'trainer':
-            logger.info("Starting training...")
-            # Call training function from pipeline module
-            # This would be implemented in the respective pipeline modules
-            if hasattr(pipeline_module, 'train'):
-                pipeline_module.train(
-                    input_file=input_file,
-                    model_path=args.model,
-                    verbose=verbose
-                )
-            else:
-                raise NotImplementedError(f"Training not implemented for SPARE type: {args.type}")
+            if not args.target_column:
+                raise ValueError("Target column (-tc) is required for training")
+            
+            # Train model
+            train_model(
+                input_file=args.input,
+                model_path=args.model,
+                spare_type=args.type,
+                target_column=args.target_column,
+                kernel=args.kernel,
+                tune_hyperparameters=args.tune,
+                final_model=args.final
+            )
                 
         elif args.action == 'inference':
-            logger.info("Starting inference...")
-            # Call inference function from pipeline module
-            # This would be implemented in the respective pipeline modules
-            if hasattr(pipeline_module, 'predict'):
-                pipeline_module.predict(
-                    input_file=input_file,
-                    model_path=args.model,
-                    output_file=args.output,
-                    verbose=verbose
-                )
-            else:
-                raise NotImplementedError(f"Inference not implemented for SPARE type: {args.type}")
+            if not args.output:
+                raise ValueError("Output file path (-o) is required for inference")
+            
+            # Make predictions
+            predict_model(
+                input_file=args.input,
+                model_path=args.model,
+                output_file=args.output,
+                spare_type=args.type
+            )
         
-        logger.info("Operation completed successfully!")
+        print("Operation completed successfully!")
         
     except Exception as e:
-        logger.error(f"Error: {str(e)}")
+        print(f"Error: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
