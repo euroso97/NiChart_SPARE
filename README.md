@@ -65,3 +65,12 @@ Coming Soon (Wiki-page)
 - SPARE-CVMs (HT, HL, T2B, SM, OB)
 
   Govindarajan, S.T., Mamourian, E., Erus, G. et al. Machine learning reveals distinct neuroanatomical signatures of cardiovascular and metabolic diseases in cognitively unimpaired individuals. Nat Commun 16, 2724, [doi:10.1038/s41467-025-57867-7](https://doi.org/10.1038/s41467-025-57867-7) (2025). 
+
+
+  # Notes
+
+  - data_prep.py : subsets data for training/cross-validation and also perform additional processes including standardscaling, adjustment of Age/Sex/ICV effects 
+
+  - pipelines/spare_(BIOMARKER).py : (Biomarker) specific training pipelines
+
+  - __main__.py : entry point for CLI, handle input arguments and calling of specific spare training pipeline or inferencing code
