@@ -7,7 +7,7 @@ This module contains functions for training and inference of SPARE-AD models.
 import pandas as pd
 import numpy as np
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score
 import joblib
@@ -16,7 +16,7 @@ from typing import Tuple, Optional, Dict, Any
 # # Import common functions from util
 from ..util import (
     validate_dataframe, 
-#     save_model, 
+    save_model, 
 #     load_model, 
 #     predict_model, 
 #     get_feature_importance,
@@ -42,15 +42,18 @@ def train_svc_model(
     ):
 
     # Input validation
+    print(f"Validating input...")
     validate_dataframe(dataframe, target_column)
+    print(f"Success.")
 
     # Preprocess the input df, split into X, y
+    print(f"Preprocessing the input...{dataframe.shape}")
     X, y, feature_encoder, label_encoder, scaler = preprocess_data(dataframe, 
                                                                    target_column, 
                                                                    encode_categorical_features=True,
                                                                    encode_categorical_target=True,
-                                                                   scale_features=True
-                                                                   )
+                                                                   scale_features=True)
+    print(f"Input preprocessing completed.")
     # Perform hyperparameter tuning when asked
     if tune_hyperparameters:
         param_grids = get_svm_hyperparameter_grids()['classification']
@@ -69,13 +72,14 @@ def train_svc_model(
         base_model = SVC(**base_params)
     
         # Perform grid search with 5-fold CV
+        cv = RepeatedStratifiedKFold(n_splits=cv_fold, random_state=random_state)
         grid_search = GridSearchCV(
             base_model,
             param_grid,
-            cv=cv_fold,
-            scoring='accuracy',
+            cv=cv,
+            scoring='balanced_accuracy',
             n_jobs=-1,
-            random_state=random_state
+            verbose=3
         )
         
         grid_search.fit(X, y)
@@ -86,7 +90,7 @@ def train_svc_model(
         cv_score = grid_search.best_score_
         
         print(f"Best parameters: {best_params}")
-        print(f"CV accuracy: {cv_score:.3f}")
+        print(f"CV balanced accuracy: {cv_score:.3f}")
 
         # Update the svc_params
         svc_params = grid_search.best_params_

@@ -9,13 +9,16 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 def encode_feature_df(
         df: pd.DataFrame
 ):
-    columns_in_order = df.columns
-    object_cols = df.select_dtypes(include=['object']).columns.tolist()
-    encoder = LabelEncoder()
-    encoded_data = encoder.fit_transform(df[object_cols])
-    df_encoded = pd.DataFrame(encoded_data, columns=object_cols, index=df.index)
+    if (df.dtypes == 'object').any():
+        columns_in_order = df.columns
+        object_cols = df.select_dtypes(include=['object']).columns.tolist()
+        encoder = LabelEncoder()
+        encoded_data = encoder.fit_transform(df[object_cols])
+        df_encoded = pd.DataFrame(encoded_data, columns=object_cols, index=df.index)
 
-    return pd.concat([df[~df.columns.isin(object_cols)], df_encoded], axis=1)[columns_in_order], encoder
+        return pd.concat([df[~df.columns.isin(object_cols)], df_encoded], axis=1)[columns_in_order], encoder
+    else:
+        return df, None
 
 
 def preprocess_data(

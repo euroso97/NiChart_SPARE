@@ -31,8 +31,8 @@ def preprocess_data(
     X = df.drop(columns=[target_column])
     y = df[target_column]
     
-    # Fill missing values in features with median
-    X = X.fillna(X.median())
+    # # Fill missing values in features with median
+    # X = X.fillna(X.median())
     
     # Encode target labels if they're not numeric and encoding is requested
     label_encoder = None
@@ -41,59 +41,6 @@ def preprocess_data(
         y = label_encoder.fit_transform(y)
     
     return X, y, label_encoder
-
-def get_hyperparameter_grids() -> Dict[str, Dict[str, list]]:
-    """Get hyperparameter grids for different kernels and model types."""
-    classification_grids = {
-        'linear': {
-            'C': [0.1, 1, 10, 100],
-            'class_weight': [None, 'balanced']
-        },
-        'rbf': {
-            'C': [0.1, 1, 10, 100],
-            'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
-            'class_weight': [None, 'balanced']
-        },
-        'poly': {
-            'C': [0.1, 1, 10],
-            'degree': [2, 3],
-            'gamma': ['scale', 'auto'],
-            'class_weight': [None, 'balanced']
-        },
-        'sigmoid': {
-            'C': [0.1, 1, 10],
-            'gamma': ['scale', 'auto', 0.001, 0.01],
-            'class_weight': [None, 'balanced']
-        }
-    }
-    
-    regression_grids = {
-        'linear': {
-            'C': [0.1, 1, 10, 100],
-            'epsilon': [0.01, 0.1, 0.2]
-        },
-        'rbf': {
-            'C': [0.1, 1, 10, 100],
-            'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
-            'epsilon': [0.01, 0.1, 0.2]
-        },
-        'poly': {
-            'C': [0.1, 1, 10],
-            'degree': [2, 3],
-            'gamma': ['scale', 'auto'],
-            'epsilon': [0.01, 0.1]
-        },
-        'sigmoid': {
-            'C': [0.1, 1, 10],
-            'gamma': ['scale', 'auto', 0.001, 0.01],
-            'epsilon': [0.01, 0.1]
-        }
-    }
-    
-    return {
-        'classification': classification_grids,
-        'regression': regression_grids
-    }
 
 def save_model(
     model, 

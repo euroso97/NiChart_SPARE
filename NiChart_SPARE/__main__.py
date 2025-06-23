@@ -61,32 +61,37 @@ def train_model(input_file,
     pipeline_module = get_pipeline_module(spare_type)
     
     if spare_type=='BA':
+        pass
         # Regression model (BA - Brain Age)
         # Standard training
-        print("Training model with default parameters...")
-        model, scaler, info = pipeline_module.train_svr_model(
-            dataframe=df,
-            target_column=target_column,
-            kernel=kernel,
-            tune_hyperparameters=False
-        )
+        # print("Training model with default parameters...")
+        # model, scaler, info = pipeline_module.train_svr_model(
+        #     dataframe=df,
+        #     target_column=target_column,
+        #     kernel=kernel,
+        #     tune_hyperparameters=False
+        # )
         
-        # Save model
-        pipeline_module.save_model(model, scaler, info, model_path)
-        print(f"Model saved to: {model_path}")
+        # # Save model
+        # pipeline_module.save_model(model, scaler, info, model_path)
+        # print(f"Model saved to: {model_path}")
     
     elif spare_type=='AD':        
         # Standard training
         print("Training model with default parameters...")
-        model, scaler, encoder, info = pipeline_module.train_svc_model(
+        model, feature_encoder, label_encoder, scaler = pipeline_module.train_svc_model(
             dataframe=df,
             target_column=target_column,
             kernel=kernel,
-            tune_hyperparameters=True,
+            tune_hyperparameters=False,
             train_whole_set=True
         )
         # Save model
-        pipeline_module.save_model(model, scaler, encoder, info, model_path)
+        from .util import save_model
+        save_model(model = model, 
+                   scaler = scaler, 
+                   training_info = {}, 
+                   filepath = model_path)
         print(f"Model saved to: {model_path}")
     else:
         print(f"{spare_type} is not supported.")
@@ -167,8 +172,10 @@ def main():
                        help='Train final model on entire dataset (True/False)')
     parser.add_argument('-o', '--output', 
                        help='Output CSV file path (for inference)')
-    parser.add_argument('-k', '--kernel', default='rbf',
+    parser.add_argument('-k', '--kernel', default='linear',
                        help='SVM kernel type (linear, poly, rbf, sigmoid)')
+    parser.add_argument('-kv', '--key_variable',
+                       help='Name of column indicating unique data points in the input CSV')
     parser.add_argument('-tc', '--target_column', default='target',
                        help='Name of target column in CSV')
     parser.add_argument('-iv', '--input_drop', default=None,
