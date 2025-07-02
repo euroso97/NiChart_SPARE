@@ -7,7 +7,7 @@ This module contains functions for training and inference of SPARE-AD models.
 import pandas as pd
 import numpy as np
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split, GridSearchCV, RepeatedStratifiedKFold
+from sklearn.model_selection import GridSearchCV, RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score
 import joblib
@@ -16,17 +16,73 @@ from typing import Tuple, Optional, Dict, Any
 # # Import common functions from util
 from ..util import (
     validate_dataframe, 
-    save_model, 
-#     load_model, 
-#     predict_model, 
-#     get_feature_importance,
-#     create_training_info
+    save_model
 )
 
 from ..data_prep import (
-    preprocess_data,
-    get_svm_hyperparameter_grids
+    encode_feature_df,
+    get_svm_hyperparameter_grids,
+    preprocess_classification_data
 )
+
+from ..svm import (
+    get_svm_hyperparameter_grids,
+)
+
+# def preprocess_data(
+#     df: pd.DataFrame, 
+#     target_column: str,
+#     encode_categorical_features: bool = True,
+#     encode_categorical_target: bool = True,
+#     scale_features: bool = False,
+#     training: bool = True
+# ):
+#     if training == True:
+#         """Preprocess data for training: handle missing values and encode categorical targets."""
+#         # Remove rows with missing target values
+#         df = df.dropna(subset=[target_column])
+        
+#         # Separate features and target
+#         X = df.drop(columns=[target_column])
+#         y = df[target_column]
+
+#         # Encode feature labels if they're not numeric and encoding is requested
+#         feature_encoder = None
+#         if encode_categorical_features:
+#             X, feature_encoder = encode_feature_df(X)
+        
+#         # Encode target labels if they're not numeric and encoding is requested
+#         target_encoder = None
+#         if encode_categorical_target and y.dtype == 'object':
+#             target_encoder = LabelEncoder()
+#             y = target_encoder.fit_transform(y)
+        
+#         # Scale features if requested
+#         scaler = None
+#         if scale_features:
+#             scaler = StandardScaler()
+#             X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns, index=X.index)
+        
+#         return X, y, feature_encoder, target_encoder, scaler
+    
+#     else:
+#         # Encode feature labels if they're not numeric and encoding is requested
+#         X = df
+#         feature_encoder = None
+#         if encode_categorical_features:
+#             X, feature_encoder = encode_feature_df(X)
+#         # Scale features if requested
+#         scaler = None
+#         if scale_features:
+#             scaler = StandardScaler()
+#             X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns, index=X.index)
+#         return X, feature_encoder, scaler
+
+def train_linearsvc_model():
+    print("Implement me")
+    model, feature_encoder, label_encoder, scaler = None, None, None, None
+    return model, feature_encoder, label_encoder, scaler
+
 
 # Accepts dataframe and target_column as input along with other parameters to perform an svc training
 def train_svc_model(
@@ -38,8 +94,7 @@ def train_svc_model(
     tune_hyperparameters: bool = False,
     train_whole_set: bool = True,
     **svc_params
-    #return_best_params: bool = False,
-    ):
+):
 
     # Input validation
     print(f"Validating input...")
@@ -48,11 +103,12 @@ def train_svc_model(
 
     # Preprocess the input df, split into X, y
     print(f"Preprocessing the input...{dataframe.shape}")
-    X, y, feature_encoder, label_encoder, scaler = preprocess_data(dataframe, 
-                                                                   target_column, 
-                                                                   encode_categorical_features=True,
-                                                                   encode_categorical_target=True,
-                                                                   scale_features=True)
+    X, y, feature_encoder, feature_scaler, target_encoder = preprocess_classification_data(dataframe, 
+                                                                                  target_column, 
+                                                                                  encode_categorical_features=True,
+                                                                                  scale_features=True,
+                                                                                  encode_categorical_target=True,
+                                                                                  for_training=True)
     print(f"Input preprocessing completed.")
     # Perform hyperparameter tuning when asked
     if tune_hyperparameters:
@@ -86,26 +142,25 @@ def train_svc_model(
         # model = grid_search.best_estimator_
     
         # Get best parameters and CV score
-        best_params = grid_search.best_params_
         cv_score = grid_search.best_score_
-        
-        print(f"Best parameters: {best_params}")
-        print(f"CV balanced accuracy: {cv_score:.3f}")
-
         # Update the svc_params
         svc_params = grid_search.best_params_
+
+        print(f"Best parameters: {svc_params}")
+        print(f"CV balanced accuracy: {cv_score:.3f}")
+
     else:
         # Use default parameters
         svc_params.setdefault('random_state', random_state)
         cv_score = None
-        best_params = None
+        # best_params = None
 
     # Train model using the best parameter and whole set
     if train_whole_set:
         model = SVC(kernel=kernel, **svc_params)
         model.fit(X, y)
         
-        return model, feature_encoder, label_encoder, scaler
+        return model, feature_encoder, feature_encoder, feature_scaler, target_encoder
 
     else:
-        return grid_search.best_params_, feature_encoder, label_encoder, scaler
+        return grid_search.best_params_, feature_encoder, feature_encoder, feature_scaler, target_encoder

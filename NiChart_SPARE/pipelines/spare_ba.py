@@ -7,8 +7,8 @@ Brain Age is a continuous variable, so this uses regression models.
 
 import pandas as pd
 import numpy as np
-from sklearn.svm import SVR
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.svm import LinearSVR, SVR
+from sklearn.model_selection import GridSearchCV, RepeatedKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import joblib
@@ -17,49 +17,205 @@ from typing import Tuple, Optional, Dict, Any
 # Import common functions from util
 from ..util import (
     validate_dataframe, 
-    preprocess_data,
     save_model, 
-    load_model, 
-    predict_model, 
-    get_feature_importance,
-    create_training_info
 )
+
+from ..data_prep import (
+    encode_feature_df,
+    get_svm_hyperparameter_grids
+)
+
+def preprocess_data(
+    df: pd.DataFrame, 
+    target_column: str,
+    encode_categorical_features: bool = True,
+    scale_features: bool = False
+):
+    """Preprocess data for training: handle missing values and encode categorical targets."""
+    # Remove rows with missing target values
+    df = df.dropna(subset=[target_column])
+    
+    # Separate features and target
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+
+    # Encode feature labels if they're not numeric and encoding is requested
+    feature_encoder = None
+    if encode_categorical_features:
+        X, feature_encoder = encode_feature_df(X)
+    
+    # Scale features if requested
+    scaler = None
+    if scale_features:
+        scaler = StandardScaler()
+        X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns, index=X.index)
+    
+    return X, y, feature_encoder, scaler
+
+def train_linearsvr_model(
+    dataframe: pd.DataFrame,
+    target_column: str,
+    random_state: int = 42,
+    cv_fold: int = 5,
+    tune_hyperparameters: bool = False,
+    get_cv_scores: bool = True,
+    train_whole_set: bool = True,
+    **svr_params
+):
+    """Train an SVR model to predict the target column from a dataframe."""
+    
+    svr_params = {"loss":"squared_epsilon_insensitive",
+                  "dual":False}
+    
+    # Input validation
+    print(f"Validating input...")
+    validate_dataframe(dataframe, target_column)
+    print(f"Success.")
+    
+    # Preprocess data (no label encoding for regression)
+    print(f"Preprocessing the input...{dataframe.shape}")
+    X, y, _, scaler = preprocess_data(dataframe, 
+                                   target_column, 
+                                   scale_features=True)
+    print(f"Input preprocessing completed.")
+    
+    # Perform hyperparameter tuning when asked
+    if tune_hyperparameters:
+        param_grids = get_svm_hyperparameter_grids()['regression']
+        print(f"Hyperparameter selectio initated...")
+        base_params = {'random_state': random_state}
+        base_params.update(svr_params)
+      
+        # # Get parameter grid for the specified kernel
+        param_grid = param_grids.get('linear', {})
+        
+        if param_grid:
+            # Remove any parameters that are already set in svc_params
+            for param in list(param_grid.keys()):
+                if param in svr_params:
+                    del param_grid[param]
+        
+        # Create base model
+        base_model = LinearSVR(**base_params)
+        
+        # Perform grid search with 5-fold CV
+        cv = RepeatedKFold(n_splits=cv_fold)
+        grid_search = GridSearchCV(
+            base_model,
+            param_grid,
+            cv=cv,
+            scoring='r2',
+            n_jobs=-1,
+            verbose=3
+        )
+        
+        grid_search.fit(X, y)
+        # Get best parameters and CV score
+        #best_params = grid_search.best_params_
+        print(f"Hyperparameter selection with {cv_fold} fold CV completed.")
+        cv_score = grid_search.best_score_
+        # Update the svc_params
+        svr_params = grid_search.best_params_
+        
+        print(f"Best parameters: {svr_params}")
+        print(f"CV R2: {cv_score:.3f}")
+
+    else:
+        print(f"Hyperparameter selection skipped...")
+        cv_score = None
+    
+    if get_cv_scores:
+        print(f"Initiating {cv_fold}-fold CV")
+        cv = RepeatedKFold(n_splits=cv_fold, random_state=2025)
+        model = LinearSVR(**svr_params)
+        scoring_metrics = ['r2', 'neg_mean_absolute_error', 'neg_mean_squared_error']
+        cv_results = cross_validate(model, 
+                                    X, 
+                                    y, 
+                                    cv=cv_fold, 
+                                    scoring=scoring_metrics, 
+                                    return_train_score=True,
+                                    verbose=1)
+        cv_results_df = pd.DataFrame(cv_results)
+        # Make the MSE scores positive for easier interpretation
+        cv_results_df['test_mae'] = -cv_results_df['test_neg_mean_absolute_error']
+        cv_results_df['train_mae'] = -cv_results_df['train_neg_mean_absolute_error']
+        cv_results_df['test_mse'] = -cv_results_df['test_neg_mean_squared_error']
+        cv_results_df['train_mse'] = -cv_results_df['train_neg_mean_squared_error']
+
+        print("5-Fold Cross-Validation Results using cross_validate:")
+        print("-----------------------------------------------------")
+        print("Full results dictionary as DataFrame:")
+        print(cv_results_df[['fit_time', 'test_mae', 'train_mae', 'test_r2', 'train_r2', 'test_mse', 'train_mse']])
+        print("\n" + "="*50 + "\n")
+
+        print(f"Summary of {cv_fold}-fold CV:")
+        print("--------------------------------")
+        print(f"Mean Fit Time: {cv_results_df['fit_time'].mean():.4f}s")
+
+        # Summary for R-squared
+        mean_r2 = cv_results_df['test_r2'].mean()
+        std_r2 = cv_results_df['test_r2'].std()
+        print(f"\nMean R-squared: {mean_r2:.4f} (std: {std_r2:.4f})")
+        # Summary for MAE
+        mean_mae = cv_results_df['test_mae'].mean()
+        std_mae = cv_results_df['test_mae'].std()
+        print(f"Mean MAE: {mean_mae:.4f} (std: {std_mae:.4f})")
+        # Summary for Mean Squared Error
+        mean_mse = cv_results_df['test_mse'].mean()
+        std_mse = cv_results_df['test_mse'].std()
+        print(f"Mean MSE: {mean_mse:.4f} (std: {std_mse:.4f})")
+        # Check for overfitting by comparing train and test scores
+        mean_train_r2 = cv_results_df['train_r2'].mean()
+        mean_test_r2 = cv_results_df['test_r2'].mean()
+        print(f"\nAverage Train R-squared: {mean_train_r2:.4f}")
+        print(f"Average Test R-squared:  {mean_test_r2:.4f}")
+        if mean_train_r2 > mean_test_r2 + (2*std_r2):
+            print("Note: The model may be overfitting, as the training score is significantly higher than the test score.")
+
+
+    # Train model using the best parameter and whole set
+    if not train_whole_set:
+        return grid_search.best_params_, scaler
+    
+    else:
+        model = LinearSVR(**svr_params)
+        model.fit(X, y)
+        return model, scaler
+
 
 def train_svr_model(
     dataframe: pd.DataFrame,
     target_column: str,
-    kernel: str = 'rbf',
-    test_size: float = 0.2,
-    random_state: int = 42,
+    kernel: str = 'linear',
+    cv_fold: int = 5,
     tune_hyperparameters: bool = False,
-    return_best_params: bool = False,
+    get_cv_scores: bool = True,
+    train_whole_set: bool = True,
     **svr_params
-) -> Tuple[SVR, StandardScaler, dict]:
+):
     """Train an SVR model to predict the target column from a dataframe."""
     
     # Input validation
+    print(f"Validating input...")
     validate_dataframe(dataframe, target_column)
+    print(f"Success.")
     
     # Preprocess data (no label encoding for regression)
-    X, y, _ = preprocess_data(dataframe, target_column, encode_categorical=False)
-    
-    # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state
-    )
-    
-    # Scale the features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    print(f"Preprocessing the input...{dataframe.shape}")
+    X, y, scaler = preprocess_data(dataframe, 
+                                   target_column, 
+                                   scale_features=True)
+    print(f"Input preprocessing completed.")
     
     # Get hyperparameter grids
-    param_grids = get_hyperparameter_grids()['regression']
+    param_grids = get_svm_hyperparameter_grids()['regression']
     
     # Train SVR model
     if tune_hyperparameters:
+        print(f"Hyperparameter selection initated...")
         # Use GridSearchCV for hyperparameter tuning
-        base_params = {'kernel': kernel, 'random_state': random_state}
+        base_params = {'kernel': kernel}
         base_params.update(svr_params)
         
         # Get parameter grid for the specified kernel
@@ -74,99 +230,79 @@ def train_svr_model(
         base_model = SVR(**base_params)
         
         # Perform grid search with 5-fold CV
+        cv = RepeatedKFold(n_splits=cv_fold)
         grid_search = GridSearchCV(
             base_model,
             param_grid,
-            cv=5,
+            cv=cv,
             scoring='r2',
             n_jobs=-1,
-            random_state=random_state
+            verbose=3
         )
         
-        grid_search.fit(X_train_scaled, y_train)
-        model = grid_search.best_estimator_
-        
+        grid_search.fit(X, y)
         # Get best parameters and CV score
-        best_params = grid_search.best_params_
+        #best_params = grid_search.best_params_
+        print(f"Hyperparameter selection with {cv_fold} fold CV completed.")
         cv_score = grid_search.best_score_
+        # Update the svc_params
+        svr_params = grid_search.best_params_
         
-        print(f"Best parameters: {best_params}")
-        print(f"CV R² score: {cv_score:.3f}")
-        
+        print(f"Best parameters: {svr_params}")
+        print(f"CV balanced accuracy: {cv_score:.3f}")
+
     else:
-        # Use default parameters
-        svr_params.setdefault('random_state', random_state)
-        model = SVR(kernel=kernel, **svr_params)
-        model.fit(X_train_scaled, y_train)
+        print(f"Hyperparameter selection skipped...")
         cv_score = None
-        best_params = None
     
-    # Calculate test metrics
-    y_test_pred = model.predict(X_test_scaled)
-    test_r2 = r2_score(y_test, y_test_pred)
-    test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
-    test_mae = mean_absolute_error(y_test, y_test_pred)
-    
-    # Create training info
-    test_metrics = {
-        'test_r2': test_r2,
-        'test_rmse': test_rmse,
-        'test_mae': test_mae
-    }
-    training_info = create_training_info(
-        model, test_metrics, cv_score, best_params, 
-        dataframe, X, kernel, tune_hyperparameters
-    )
-    
-    return model, scaler, training_info
+    if get_cv_scores:
+        print(f"Initiating 5-fold CV")
+        cv = RepeatedKFold(n_splits=cv_fold)
+        model = SVR(kernel=kernel, **svr_params)
+        scoring_metrics = ['r2', 'neg_mean_squared_error']
+        cv_results = cross_validate(model, 
+                                    X, 
+                                    y, 
+                                    cv=cv_fold, 
+                                    scoring=scoring_metrics, 
+                                    return_train_score=True,
+                                    verbose=1)
+        cv_results_df = pd.DataFrame(cv_results)
+        # Make the MSE scores positive for easier interpretation
+        cv_results_df['test_mse'] = -cv_results_df['test_neg_mean_squared_error']
+        cv_results_df['train_mse'] = -cv_results_df['train_neg_mean_squared_error']
+        print("5-Fold Cross-Validation Results using cross_validate:")
+        print("-----------------------------------------------------")
+        print("Full results dictionary as DataFrame:")
+        print(cv_results_df[['fit_time', 'test_r2', 'train_r2', 'test_mse', 'train_mse']])
+        print("\n" + "="*50 + "\n")
 
-def train_final_model(
-    dataframe: pd.DataFrame,
-    target_column: str,
-    best_params: Dict[str, Any],
-    kernel: str = 'rbf',
-    random_state: int = 42
-    ) -> Tuple[SVR, StandardScaler, dict]:
-    """Train a final SVR model using the best hyperparameters on the entire dataset."""
-    
-    # Input validation
-    validate_dataframe(dataframe, target_column)
-    
-    if not best_params:
-        raise ValueError("best_params cannot be empty")
-    
-    # Preprocess data (no label encoding for regression)
-    X, y, _ = preprocess_data(dataframe, target_column, encode_categorical=False)
-    
-    # Scale the features using the entire dataset
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Create model with best parameters
-    model_params = {
-        'kernel': kernel,
-        'random_state': random_state,
-        **best_params
-    }
-    
-    model = SVR(**model_params)
-    
-    # Train on the entire dataset
-    model.fit(X_scaled, y)
-    
-    # Create training info
-    training_info = create_training_info(
-        model, {}, None, best_params, 
-        dataframe, X, kernel, False, final_model=True
-    )
-    
-    print(f"Final model trained on {len(dataframe)} samples")
-    print(f"Using best parameters: {best_params}")
-    
-    return model, scaler, training_info
+        print("Summary of Test Set Performance:")
+        print("--------------------------------")
+        print(f"Mean Fit Time: {cv_results_df['fit_time'].mean():.4f}s")
 
-# Use common functions from util.py
-save_model = save_model
-load_model = load_model
-predict_svr = predict_model
-get_feature_importance = get_feature_importance
+        # Summary for R-squared
+        mean_r2 = cv_results_df['test_r2'].mean()
+        std_r2 = cv_results_df['test_r2'].std()
+        print(f"\nMean R-squared: {mean_r2:.4f} (std: {std_r2:.4f})")
+        # Summary for Mean Squared Error
+        mean_mse = cv_results_df['test_mse'].mean()
+        std_mse = cv_results_df['test_mse'].std()
+        print(f"Mean MSE: {mean_mse:.4f} (std: {std_mse:.4f})")
+        # Check for overfitting by comparing train and test scores
+        mean_train_r2 = cv_results_df['train_r2'].mean()
+        mean_test_r2 = cv_results_df['test_r2'].mean()
+        print(f"\nAverage Train R-squared: {mean_train_r2:.4f}")
+        print(f"Average Test R-squared:  {mean_test_r2:.4f}")
+        if mean_train_r2 > mean_test_r2 + (2*std_r2):
+            print("Note: The model may be overfitting, as the training score is significantly higher than the test score.")
+
+
+    # Train model using the best parameter and whole set
+    if not train_whole_set:
+        return grid_search.best_params_, scaler
+    else:
+        model = SVR(kernel=kernel, **svr_params)
+        model.fit(X, y)
+        return model, scaler
+    
