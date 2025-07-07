@@ -5,18 +5,29 @@ NiChart_SPARE -a trainer \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
 			  -tc DX \
 			  -kv MRID \
-			  -iv Study,SITE \
+			  -ic Study,SITE \
 			  -cb True \
 			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
 			  -mt SVM \
 			  -sk linear
 
 NiChart_SPARE -a trainer \
+			  -t CL \
+			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
+			  -tc DX \
+			  -kv MRID \
+			  -ic Study,SITE \
+			  -cb True \
+			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
+			  -mt SVM \
+			  -sk rbf
+
+NiChart_SPARE -a trainer \
 			  -t BA \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-BA-Harmonized-UKBIOBANK.csv \
 			  -tc Age \
 			  -kv MRID \
-			  -iv Study,SITE \
+			  -ic Study,SITE \
 			  -cb True \
 			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-ukbiobank.joblib \
 			  -mt SVM \

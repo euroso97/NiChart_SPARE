@@ -11,6 +11,7 @@ import numpy as np
 import joblib
 
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.utils import column_or_1d
 
 
 # ############# DATA CHECK ##############
@@ -43,13 +44,77 @@ def encode_feature_df(df: pd.DataFrame):
     if (df.dtypes == 'object').any():
         columns_in_order = df.columns
         object_cols = df.select_dtypes(include=['object']).columns.tolist()
-        encoder = LabelEncoder()
-        encoded_data = encoder.fit_transform(df[object_cols])
-        df_encoded = pd.DataFrame(encoded_data, columns=object_cols, index=df.index)
+        print(f"Encoding the following columns: {object_cols}")
+        df_oc = df[object_cols]
+        encoders = {}
+        for oc in object_cols:
+            encoder = LabelEncoder()
+            df_oc[oc] = encoder.fit_transform(df_oc[oc])
+            encoders[oc] = encoder
+        #df_encoded = pd.DataFrame(df_oc, columns=object_cols, index=df.index)
 
-        return pd.concat([df[~df.columns.isin(object_cols)], df_encoded], axis=1)[columns_in_order], encoder
+        return pd.concat([df[~df.columns.isin(object_cols)], df_oc], axis=1)[columns_in_order], encoder
     else:
         return df, None
+
+
+def preprocess_regression_data(
+    df: pd.DataFrame, 
+    target_column: str,
+    encode_categorical_features: bool = True,
+    scale_features: bool = False,
+    scale_target_features: bool = False,
+    for_training: bool = True
+):
+    X, y, feature_encoder, feature_scaler, target_scaler = (None, None, None, None, None)
+
+    if for_training:
+        """Preprocess data for training: handle missing values and encode categorical featurs & targets."""
+        df = df.dropna(subset=[target_column]) # Remove rows with missing target values
+        
+        # Separate features and target
+        X = df.drop(columns=[target_column])
+        y = column_or_1d(df[target_column])
+
+        # Encode feature labels if they're not numeric and encoding is requested
+        if encode_categorical_features:
+            X, feature_encoder = encode_feature_df(X)
+        # Scale features if requested
+        if scale_features:
+            feature_scaler = StandardScaler()
+            X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
+
+        # Scale target values if they're numeric and scaling is requested
+        if scale_target_features and pd.api.types.is_numeric_dtype(y):
+            target_scaler = StandardScaler()
+            y = target_scaler.fit_transform(y)
+
+    else:
+        """Preprocess data for inference: handle missing values and encode categorical features."""
+        # Check if ground truth is provided in the df, if so, drop it.
+        if target_column in df.columns:
+            X = df.drop(columns=[target_column])
+            y = df[target_column]
+        else:
+            X = df
+            y = None
+        
+        # Encode feature labels if they're not numeric and encoding is requested
+        # feature_encoder = None
+        if encode_categorical_features:
+            X, feature_encoder = encode_feature_df(X)
+        # Scale features if requested
+        if scale_features:
+            feature_scaler = StandardScaler()
+            X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
+        # Encode target labels if they're not numeric and encoding is requested
+        # Scale target values if they're numeric and scaling is requested
+        if y != None & scale_target_features & pd.api.types.is_numeric_dtype(y):
+            target_scaler = StandardScaler()
+            y = target_scaler.fit_transform(y)
+    
+    return X, y, feature_encoder, feature_scaler, target_scaler
+
 
 # Prepare data for classifier training and testing
 # df: dataframe containing only essential columns
@@ -57,7 +122,7 @@ def preprocess_classification_data(
     df: pd.DataFrame, 
     target_column: str,
     encode_categorical_features: bool = True,
-    scale_features: bool = False,
+    scale_features: bool = True,
     encode_categorical_target: bool = True,
     for_training: bool = True
 ):
@@ -68,27 +133,30 @@ def preprocess_classification_data(
         df = df.dropna(subset=[target_column]) # Remove rows with missing target values
         
         # Separate features and target
-        X = df.drop(columns=[target_column])
+        X = df.drop([target_column],axis=1)
         y = df[target_column]
 
         # Encode feature labels if they're not numeric and encoding is requested
         if encode_categorical_features:
+            print(f"Encoding the categorical features.")
             X, feature_encoder = encode_feature_df(X)
         # Scale features if requested
         if scale_features:
+            print(f"Scaling the features.")
             feature_scaler = StandardScaler()
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
 
         # Encode target labels if they're not numeric and encoding is requested
         if encode_categorical_target and y.dtype == 'object':
+            print(f"Encoding the categorical label")
             target_encoder = LabelEncoder()
             y = target_encoder.fit_transform(y)
     
     else:
         """Preprocess data for inference: handle missing values and encode categorical features."""
         # Check if ground truth is provided in the df, if so, drop it.
-        if target_column.isin(df.columns):
-            X = df.drop(columns=[target_column])
+        if target_column in df.columns:
+            X = df.drop(columns=[target_column]).to_numpy()
             y = df[target_column]
         else:
             X = df
@@ -111,63 +179,6 @@ def preprocess_classification_data(
                 y = target_encoder.fit_transform(y)
         
     return X, y, feature_encoder, feature_scaler, target_encoder
-
-def preprocess_regression_data(
-    df: pd.DataFrame, 
-    target_column: str,
-    encode_categorical_features: bool = True,
-    scale_features: bool = False,
-    scale_target_features: bool = False,
-    for_training: bool = True
-):
-    X, y, feature_encoder, feature_scaler, target_scaler = (None, None, None, None, None)
-
-    if for_training:
-        """Preprocess data for training: handle missing values and encode categorical featurs & targets."""
-        df = df.dropna(subset=[target_column]) # Remove rows with missing target values
-        
-        # Separate features and target
-        X = df.drop(columns=[target_column])
-        y = df[target_column]
-
-        # Encode feature labels if they're not numeric and encoding is requested
-        if encode_categorical_features:
-            X, feature_encoder = encode_feature_df(X)
-        # Scale features if requested
-        if scale_features:
-            feature_scaler = StandardScaler()
-            X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
-
-        # Scale target values if they're numeric and scaling is requested
-        if scale_target_features and pd.api.types.is_numeric_dtype(y):
-            target_scaler = StandardScaler()
-            y = target_scaler.fit_transform(y)
-
-    else:
-        """Preprocess data for inference: handle missing values and encode categorical features."""
-        # Check if ground truth is provided in the df, if so, drop it.
-        if target_column.isin(df.columns):
-            X = df.drop(columns=[target_column])
-            y = df[target_column]
-        else:
-            X = df
-            y = None
-        
-        # Encode feature labels if they're not numeric and encoding is requested
-        # feature_encoder = None
-        if encode_categorical_features:
-            X, feature_encoder = encode_feature_df(X)
-        # Scale features if requested
-        if scale_features:
-            feature_scaler = StandardScaler()
-            X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
-        # Encode target labels if they're not numeric and encoding is requested
-        # Scale target values if they're numeric and scaling is requested
-        if y != None & scale_target_features & pd.api.types.is_numeric_dtype(y):
-            target_scaler = StandardScaler()
-            y = target_scaler.fit_transform(y)
-    
-    return X, y, feature_encoder, feature_scaler, target_scaler
 
 
 def apply_cvm_residualization(df: pd.DataFrame, 

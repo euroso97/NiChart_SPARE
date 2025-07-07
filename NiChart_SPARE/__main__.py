@@ -15,6 +15,7 @@ import sys
 # from .pipelines import spare_ad, spare_ba, spare_ht
 from .svm import train_svm_model, predict_svm_model
 
+
 # Entry point & CLI Args
 def main():
     """Main entry point for NiChart_SPARE"""
@@ -41,8 +42,10 @@ def main():
     parser.add_argument('-i', '--input', required=True,
                        help='Input CSV file path')
     # Train/Test specifci arguments
-    parser.add_argument('-f', '--final', type=str, default='False',
+    parser.add_argument('-tf', '--train_whole', type=str, default='True',
                        help='Train final model on entire dataset (True/False)')
+    parser.add_argument('-cf', '--cv_fold', type=int, default=5,
+                       help='Number of folds for CV (Default: 5)')
     parser.add_argument('-mo', '--model_output', 
                        help='Output model file path (for training)')
     parser.add_argument('-m', '--model', 
@@ -74,7 +77,7 @@ def main():
     
     # Convert string arguments to boolean
     tune_hyperparameters = args.verbose.lower() == 'true'
-    final_model = args.final.lower() == 'true'
+    train_whole_set = args.train_whole.lower() == 'true'
     class_balancing = args.class_balancing.lower() == 'true'
     
     # Parse columns to drop
@@ -97,10 +100,11 @@ def main():
                     spare_type=args.type,
                     target_column=args.target_column,
                     kernel=args.svm_kernel,
-                    class_balancing=class_balancing,
                     tune_hyperparameters=tune_hyperparameters,
-                    final_model=final_model,
-                    drop_columns=ignore_columns
+                    cv_fold=args.cv_fold,
+                    class_balancing=class_balancing,
+                    train_whole_set=train_whole_set,
+                    drop_columns=ignore_columns + [args.key_variable]
                 )
             elif args.model_type == 'MLP':
                 print("MLP is coming soon!")

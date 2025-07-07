@@ -10,29 +10,31 @@ import pandas as pd
 import numpy as np
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV, RepeatedStratifiedKFold
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+# from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score
-import joblib
-from typing import Tuple, Optional, Dict, Any
+# import joblib
+# from typing import Tuple, Optional, Dict, Any
 
 # # Import common functions from util
 from ..util import (
-    validate_dataframe, 
-    save_model
+    get_svm_hyperparameter_grids
 )
 
-from ..data_prep import (
-    encode_feature_df,
-    get_svm_hyperparameter_grids,
-    preprocess_classification_data
-)
-
-from ..svm import (
-    get_svm_hyperparameter_grids,
-)
+from ..data_analysis import report_classification_metrics
 
 
-def train_linearsvc_model():
+def train_linearsvc_model(
+    X,
+    y,
+    kernel: str = 'linear',
+    tune_hyperparameters: bool = False,
+    cv_fold: int = 5,
+    class_balancing: bool = True,
+    get_cv_scores: bool = True,
+    train_whole_set: bool = True,
+    random_state: int = 42,
+    **svc_params):
+
     print("Implement me")
     model, feature_encoder, label_encoder, scaler = None, None, None, None
     return model, feature_encoder, label_encoder, scaler
@@ -40,35 +42,29 @@ def train_linearsvc_model():
 
 # Accepts dataframe and target_column as input along with other parameters to perform an svc training
 def train_svc_model(
-    dataframe: pd.DataFrame,
-    target_column: str,
+    X,
+    y,
     kernel: str = 'linear',
-    random_state: int = 42,
-    cv_fold: int = 5,
     tune_hyperparameters: bool = False,
+    cv_fold: int = 5,
+    class_balancing: bool = True,
+    get_cv_scores: bool = True,
     train_whole_set: bool = True,
+    random_state: int = 42,
     **svc_params
 ):
+    # Initialize base parameters
+    base_params = {'kernel': kernel, 'random_state': random_state}
+    base_params.update(svc_params)  # overwrite base_params
+    
+    # Enable class_weight='balanced' if class_balancing parameter is passed and True
+    if class_balancing:
+        base_params.update({'class_weight':'balanced'})
 
-    # Input validation
-    print(f"Validating input...")
-    validate_dataframe(dataframe, target_column)
-    print(f"Success.")
-
-    # Preprocess the input df, split into X, y
-    print(f"Preprocessing the input...{dataframe.shape}")
-    X, y, feature_encoder, label_encoder, scaler = preprocess_classification_data(dataframe, 
-                                                                                  target_column, 
-                                                                                  encode_categorical_features=True,
-                                                                                  encode_categorical_target=True,
-                                                                                  scale_features=True,
-                                                                                  for_training=True)
-    print(f"Input preprocessing completed.")
     # Perform hyperparameter tuning when asked
     if tune_hyperparameters:
+        print(f"Hyperparameter selection initated...")
         param_grids = get_svm_hyperparameter_grids()['classification']
-        base_params = {'kernel': kernel, 'random_state': random_state}
-        base_params.update(svc_params)
       
         # Get parameter grid for the specified kernel
         param_grid = param_grids.get(kernel, {})
@@ -82,7 +78,10 @@ def train_svc_model(
         base_model = SVC(**base_params)
     
         # Perform grid search with 5-fold CV
-        cv = RepeatedStratifiedKFold(n_splits=cv_fold, random_state=random_state)
+        cv = RepeatedStratifiedKFold(n_splits=cv_fold,
+                                     n_repeats=10, 
+                                     random_state=random_state)
+        
         grid_search = GridSearchCV(
             base_model,
             param_grid,
@@ -93,28 +92,51 @@ def train_svc_model(
         )
         
         grid_search.fit(X, y)
-        # model = grid_search.best_estimator_
     
-        # Get best parameters and CV score
+        # Get best parameters and CV score & Update the svc_params
         cv_score = grid_search.best_score_
-        # Update the svc_params
         svc_params = grid_search.best_params_
 
         print(f"Best parameters: {svc_params}")
         print(f"CV balanced accuracy: {cv_score:.3f}")
 
     else:
+        print(f"Hyperparameter selection skipped...")
         # Use default parameters
         svc_params.setdefault('random_state', random_state)
         cv_score = None
         # best_params = None
 
+    # Perform another CV using the best parameter if get_cv_score parameter is True
+    if get_cv_scores:
+        print(f"Initiating {cv_fold}-fold CV")
+        cv_scores = {}
+        cv = RepeatedStratifiedKFold(n_splits=cv_fold, 
+                                     n_repeats=10, 
+                                     random_state=random_state)
+        
+        for i, (train_index, test_index) in enumerate(cv.split(X, y)):
+            X_train, X_test = X.loc[train_index], X.loc[test_index]
+            y_train, y_test = y.loc[train_index], y.loc[test_index]
+            
+            # Train model with current parameters
+            model = SVC(kernel=kernel, **svc_params)
+            model.fit(X_train, y_train)
+            
+            # Predict
+            y_pred = model.predict(X_test)
+            # Get validation metrics
+            cv_metric = report_classification_metrics(y_test, y_pred)
+        cv_score["Fold_%d"%i] = cv_metric
+
     # Train model using the best parameter and whole set
     if train_whole_set:
         model = SVC(kernel=kernel, **svc_params)
         model.fit(X, y)
-        
-        return model, feature_encoder, label_encoder, scaler
-
+        return model
+    
     else:
-        return grid_search.best_params_, feature_encoder, label_encoder, scaler
+        if tune_hyperparameters:
+            return grid_search.best_estimator_
+        else:
+            return None
