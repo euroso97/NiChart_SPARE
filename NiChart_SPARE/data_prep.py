@@ -48,7 +48,7 @@ def encode_feature_df(df: pd.DataFrame):
         encoders = {}
         for oc in object_cols:
             encoder = LabelEncoder()
-            df_oc[oc] = encoder.fit_transform(df_oc[oc])
+            df_oc.loc[:, oc] = encoder.fit_transform(df_oc[oc].values)
             encoders[oc] = encoder
         #df_encoded = pd.DataFrame(df_oc, columns=object_cols, index=df.index)
 
@@ -179,8 +179,7 @@ def preprocess_classification_data(
         if feature_scaler != None:
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
         
-        
-        
+    
     return X, y, feature_encoder, feature_scaler, target_encoder
 
 

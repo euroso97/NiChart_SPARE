@@ -257,17 +257,17 @@ def train_svc_model(
     return model, hyperparameter_tuning, cv_scores
 
 
-def predict_svc(df, model, meta_data, preprocessor, verbose=0):
-    # preprocess the data
-    df_set = df[meta_data['training_data_description']['feature_names']]
+# def predict_svc(df, model, meta_data, preprocessor, verbose=0):
+#     # preprocess the data
+#     df_set = df[meta_data['training_data_description']['feature_names']]
 
-    if verbose > 1:
-        print(f"Features used: {df_set.columns}")
+#     if verbose > 1:
+#         print(f"Features used: {df_set.columns}")
     
-    if preprocessor['feature_encoder'] != None:
+#     if preprocessor['feature_encoder'] != None:
+        
+#     if preprocessor['feature_scaler'] != None:
 
-    if preprocessor['feature_scaler'] != None:
+#     if preprocessor['target_encoder'] != None:
 
-    if preprocessor['target_encoder'] != None:
-
-    if preprocessor['target_scaler'] != None:
+#     if preprocessor['target_scaler'] != None:

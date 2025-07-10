@@ -3,20 +3,19 @@ Sklearn SVM specific functions
 """
 import sys
 import joblib
-from typing import Tuple, Optional, Dict, Any
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+# from typing import Tuple, Optional, Dict, Any
+# from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.svm import SVR
 
 import numpy as np
-# import pandas as pd
+import pandas as pd
 
 from .util import (
 	expspace, 
     is_regression_model, 
     get_pipeline_module,
     get_metadata,
-    get_preprocessors,
-    get_hyperparameter_tuning
+    get_preprocessors
 )
 
 from .data_prep import (
@@ -294,16 +293,25 @@ def infer_svm_model(input_file,
                     model_path, 
                     spare_type, 
                     output_file, 
+                    key_variable='MRID',
                     drop_columns=None):
     """Make predictions using trained model"""
     
-    # Load data
-    print("Loading prediction data...")
-    df = load_csv_data(input_file, drop_columns=drop_columns)
-
     # Load model
     print("Loading trained model...")
     model, meta_data, preprocessor, _, _ = load_svm_model(model_path) # TBF
+
+    # Load data
+    print("Loading prediction data...")
+    df = load_csv_data(input_file, drop_columns=None)
+
+
+    # Check all columns exist in the input file
+    for nf in meta_data['training_data_description']['feature_names']:
+        if nf not in df.columns:
+            raise("Missing columns:"+nf)
+        else:
+            print(f"Checked:\t{nf}")
 
     # Regression model (BA - Brain Age)
     if spare_type in ['RG','BA']:
@@ -322,20 +330,21 @@ def infer_svm_model(input_file,
         # Preprocess data
         print(f"Preprocessing the input...{df.shape}")
         X, y, _, _, _ = preprocess_classification_data( 
-            df = df,
+            df = df.drop([key_variable],axis=1),
             target_column = meta_data['training_data_description']['target_column'],
             feature_encoder = preprocessor['feature_encoder']
             )
         print(f"Input preprocessing completed.")
     
     # Get prediction
-    predictions = model.predict(X)
+    predictions = model.predict(X.astype(float))
     
     # Create output dataframe
-    output_df = df.copy()
+    output_df = pd.DataFrame()
+    output_df[key_variable] = df[key_variable]
     output_df['SPARE_'+spare_type] = predictions
 
-    if y != None:
+    if y.all() != None:
         output_df['GT_'+spare_type] = y
     
     # Save predictions

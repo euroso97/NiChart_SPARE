@@ -12,7 +12,7 @@ NiChart_SPARE -a trainer \
 			  -kv MRID \
 			  -tc DX \
 			  -ic Study,SITE \
-			  -cb True \
+			  -cb False \
 			  -v 1
 
 NiChart_SPARE -a trainer \
@@ -37,10 +37,11 @@ NiChart_SPARE -a inference \
 			  -t CL \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
 			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
-			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-AD-Harmonized.csv
+			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-AD-Harmonized.csv \
+			  -kv MRID
 
-NiChart_SPARE -a trainer \
-			  -t BA \
-			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-BA-Harmonized-UKBIOBANK.csv \
-			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-ukbiobank.joblib \
-			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-BA-Harmonized-UKBIOBANK.csv
+# NiChart_SPARE -a trainer \
+# 			  -t BA \
+# 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-BA-Harmonized-UKBIOBANK.csv \
+# 			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-ukbiobank.joblib \
+# 			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-BA-Harmonized-UKBIOBANK.csv

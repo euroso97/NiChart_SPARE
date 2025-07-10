@@ -126,8 +126,9 @@ def main():
                 infer_svm_model(
                     input_file=args.input,
                     model_path=args.model,
+                    spare_type=args.type,
                     output_file=args.output,
-                    spare_type=args.type
+                    key_variable=args.key_variable                    
                 )
             elif args.model_type == 'MLP':
                 print("MLP is coming soon!")

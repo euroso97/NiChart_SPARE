@@ -42,7 +42,7 @@ def get_metadata(spare_type,
                 },
             "training_data_description":{
                 "target_column":target_column,
-                "feature_names":df.columns.tolist().remove(target_column),
+                "feature_names":[f for f in df.columns if f != target_column],
                 "feature_count":len(df.columns.tolist())-1,
                 "data_size":len(df)
                 },
