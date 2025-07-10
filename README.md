@@ -28,20 +28,44 @@ pip install -e .
 ### Example Usage
 ##### Training
 ```bash
-NiChart_SPARE   -a      trainer                 \
-                -t      AD                      \
-                -i      /path/to/input_file.csv \
-                -mo     /path/to/spare_ad_model.pkl.gz
-                -v      True
+NiChart_SPARE -a trainer \
+              -t CL \
+              -i training_input.csv \
+              -mt SVM \
+              -sk linear \
+              -ht True \
+              -tw True \
+              -cf 5 \
+              -mo output_model.joblib \
+              -kv MRID \
+              -tc disease \
+              -ic Study,SITE,Sex \
+              -cb False \
+              -v 1
+```
+```bash
+NiChart_SPARE -a trainer \
+              -t RG \
+              -i training_input.csv \
+              -mt SVM \
+              -sk linear \
+              -ht False \
+              -tw True \
+              -cf 5 \
+              -mo output_model.joblib \
+              -kv MRID \
+              -tc Age \
+              -ic Study,SITE,Sex \
+              -v 1
 ```
 ##### Inference
 ```bash
-NiChart_SPARE   -a      inference                       \
-                -t      AD                              \
-                -i      /path/to/test_file.csv          \
-                -m      spare_ad_model.pkl.gz           \
-                -v      False                           \
-                -o      /path/to/output_spare_score.csv
+NiChart_SPARE -a inference \
+              -t RG \
+              -i test_input \
+              -m model.joblib \
+              -o test_output.csv \
+              -kv MRID
                 
 ```
 ## Documentation
