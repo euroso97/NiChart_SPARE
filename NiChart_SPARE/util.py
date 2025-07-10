@@ -75,9 +75,9 @@ def get_hyperparameter_tuning(tuner,
             }
 
 # ############# MISC ################
-
 def expspace(span: list) -> np.ndarray:
     return np.exp(np.linspace(span[0], span[1], num=int(span[1]) - int(span[0]) + 1)).tolist()
+
 
 def is_regression_model(spare_type):
     """Check if the SPARE type uses regression (continuous target)"""

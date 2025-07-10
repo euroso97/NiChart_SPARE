@@ -2,6 +2,7 @@ NiChart_SPARE.egg-info/
 __pycache__/
 */__pycache__/
 Data/
+Output/
 notebooks/
 *.csv
 !Resources/covparams_scaler_sparecvms.csv

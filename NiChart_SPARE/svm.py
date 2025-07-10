@@ -5,7 +5,7 @@ import sys
 import joblib
 # from typing import Tuple, Optional, Dict, Any
 # from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.svm import SVR
+from sklearn.svm import LinearSVR
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,9 @@ from .data_prep import (
 def get_svm_hyperparameter_grids():
     """Get hyperparameter grids for different kernels and model types."""
     classification_grids = {
+        'linear_fast': {
+            "C": expspace([-9, 5])
+        },
         'linear': {
             "C": expspace([-9, 5])
         },
@@ -48,6 +51,10 @@ def get_svm_hyperparameter_grids():
         }
     }
     regression_grids = {
+        'linear_fast': {
+            'C':  expspace([-9, 5]),
+            'epsilon': [0.01, 0.1, 0.2]
+        },
         'linear': {
             'C':  expspace([-9, 5]),
             'epsilon': [0.01, 0.1, 0.2]
@@ -76,7 +83,7 @@ def get_svm_hyperparameter_grids():
     }
 
 
-def correct_linear_svr_bias(svr_model, X_train, y_train):
+def correct_linearsvr_bias(svr_model, X_train, y_train):
     """
     Corrects the regularization bias of a trained SVR model by adjusting its intercept.
 
@@ -93,7 +100,7 @@ def correct_linear_svr_bias(svr_model, X_train, y_train):
         A new SVR model object with the corrected intercept.
     """
     # Create a new SVR model to avoid modifying the original one
-    corrected_model = SVR(
+    corrected_model = LinearSVR(
         C=svr_model.C,
         epsilon=svr_model.epsilon,
         kernel=svr_model.kernel,
@@ -162,7 +169,7 @@ def train_svm_model(input_file,
     # Initialize variables
     feature_encoder, feature_scaler, target_encoder, target_scaler = (None, None, None, None)
 
-    # Regression model (BA - Brain Age)
+    # Regression tasks
     if spare_type in ['RG','BA']:
         # Preprocess data (no label encoding for regression)
         print(f"Preprocessing the input...{df.shape}")
@@ -175,32 +182,21 @@ def train_svm_model(input_file,
             for_training=True)
         print(f"Input preprocessing completed.")
 
-        if kernel=='linear':
-            print("Training model with LinearSVR...")
-            # model = pipeline_module.train_linearsvr_model(
-            #     X,
-            #     y,
-            #     kernel=kernel,
-            #     tune_hyperparameters=tune_hyperparameters,
-            #     cv_fold=cv_fold,
-            #     get_cv_scores=True,
-            #     train_whole_set=train_whole_set
-            # )
+        # Training
+        if kernel.lower() in ['linear_fast','linear','poly', 'rbf', 'sigmoid']:
+            model, ht, cv = pipeline_module.train_svr_model(
+                X,
+                y,
+                kernel=kernel,
+                tune_hyperparameters=tune_hyperparameters,
+                cv_fold=cv_fold,
+                get_cv_scores=True,
+                train_whole_set=train_whole_set
+                )
         else:
-            # Standard training
-            print(f"Training model with default SVR with {kernel} kernel...")
-            # model = pipeline_module.train_svr_model(
-            #     X,
-            #     y,
-            #     kernel=kernel,
-            #     tune_hyperparameters=tune_hyperparameters,
-            #     cv_fold=cv_fold,
-            #     get_cv_scores=True,
-            #     train_whole_set=train_whole_set
-            # )
-        
-        
+            print(f"Unsupported SVM kernel entry. Please select among: linear, poly, rbf, sigmoid.")
     
+    # Classification tasks
     elif spare_type in ['CL','AD']:
         
         # Input validation
@@ -220,18 +216,7 @@ def train_svm_model(input_file,
         print(f"Input preprocessing completed.")
 
         # Training
-        if kernel.lower()=='linear':
-            print("Training model with LinearSVR...")
-            model, ht, cv = pipeline_module.train_linearsvc_model(
-                X,
-                y,
-                tune_hyperparameters=tune_hyperparameters,
-                cv_fold=cv_fold,
-                class_balancing=class_balancing,
-                get_cv_scores=True,
-                train_whole_set=train_whole_set
-                )
-        elif kernel.lower() in ['poly', 'rbf', 'sigmoid']:
+        if kernel.lower() in ['linear_fast','linear','poly', 'rbf', 'sigmoid']:
             model, ht, cv = pipeline_module.train_svc_model(
                 X,
                 y,
@@ -305,7 +290,6 @@ def infer_svm_model(input_file,
     print("Loading prediction data...")
     df = load_csv_data(input_file, drop_columns=None)
 
-
     # Check all columns exist in the input file
     for nf in meta_data['training_data_description']['feature_names']:
         if nf not in df.columns:
@@ -313,28 +297,33 @@ def infer_svm_model(input_file,
         else:
             print(f"Checked:\t{nf}")
 
-    # Regression model (BA - Brain Age)
+    df = df[[key_variable, meta_data['training_data_description']['target_column']] + meta_data['training_data_description']['feature_names']]
+
+    print(f"Preprocessing the input...{df.shape}")
+
+    # Regression task
     if spare_type in ['RG','BA']:
-        # # Preprocess data (no label encoding for regression)
-        # print(f"Preprocessing the input...{df.shape}")
-        # X, y, feature_encoder, feature_scaler, target_scaler = preprocess_regression_data( 
-        #     df = df,
-        #     target_column = meta_data['training_data_description']['target_column'],
-        #     feature_encoder = preprocessor['feature_encoder']
-        #     feature_scaler = preprocessor['feature_scaler']
-        #     )
-        # print(f"Input preprocessing completed.")
+        X, y, _, _, _ = preprocess_regression_data( 
+            df = df.drop([key_variable],axis=1),
+            target_column = meta_data['training_data_description']['target_column'],
+            feature_encoder = preprocessor['feature_encoder'],
+            feature_scaler= preprocessor['feature_scaler'],
+            for_training=False
+            )
+        print(f"Input preprocessing completed. Feature shape: {X.shape}")
         pass        
-    
+    # Classification task 
     elif spare_type in ['CL','AD']:
         # Preprocess data
-        print(f"Preprocessing the input...{df.shape}")
+        
         X, y, _, _, _ = preprocess_classification_data( 
             df = df.drop([key_variable],axis=1),
             target_column = meta_data['training_data_description']['target_column'],
-            feature_encoder = preprocessor['feature_encoder']
+            feature_encoder = preprocessor['feature_encoder'],
+            feature_scaler= preprocessor['feature_scaler'],
+            for_training=False
             )
-        print(f"Input preprocessing completed.")
+        print(f"Input preprocessing completed. Feature shape: {X.shape}")
     
     # Get prediction
     predictions = model.predict(X.astype(float))

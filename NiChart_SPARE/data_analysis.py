@@ -20,13 +20,13 @@ def report_regression_metrics(y_true, y_pred):
     adj_r2 = 1 - (1 - r2) * (n - 1) / (n - k - 1) if n > k + 1 else np.nan
 
     return {
-        'MAE': mae,
-        'MSE': mse,
-        'RMSE': rmse,
-        'MAPE': mape,
-        'sMAPE': smape,
-        'R2': r2,
-        'Adjusted R2': adj_r2
+        'MAE': float(mae),
+        'MSE': float(mse),
+        'RMSE': float(rmse),
+        'MAPE': float(mape),
+        'sMAPE': float(smape),
+        'R2': float(r2),
+        'Adjusted R2': float(adj_r2)
     }
 
 
@@ -68,14 +68,14 @@ def report_classification_metrics(y_true, y_pred):
         roc_auc = None
 
     return {
-        'Accuracy': accuracy,
-        'Balanced Accuracy': balanced_accuracy,
-        'Precision': precision,
-        'Recall': recall,
-        'F1': f1,
-        'Sensitivity': sensitivity,
-        'Specificity': specificity,
-        'ROC-AUC': roc_auc
+        'Accuracy': float(accuracy),
+        'Balanced Accuracy': float(balanced_accuracy),
+        'Precision': float(precision),
+        'Recall': float(recall),
+        'F1': float(f1),
+        'Sensitivity': float(sensitivity),
+        'Specificity': float(specificity),
+        'ROC-AUC': float(roc_auc)
     }
 
 
@@ -113,11 +113,10 @@ def ba_disease_effect_analysis(df,
 
 
 # Partial Dependency Plot
-# Generates and displays a Partial Dependence Plot (PDP) for specified features
-# This function visualizes the marginal effect of one or two features on the predicted outcome of a trained machine learning model
 from sklearn.inspection import PartialDependenceDisplay
 import matplotlib.pyplot as plt
-
+# Generates and displays a Partial Dependence Plot (PDP) for specified features
+# This function visualizes the marginal effect of one or two features on the predicted outcome of a trained machine learning model
 def generate_pdp_plot(model, X_train, features_to_plot = ['Age','Sex']):
     """
     Args:
@@ -157,6 +156,7 @@ def generate_pdp_plot(model, X_train, features_to_plot = ['Age','Sex']):
         plt.show()
     except Exception as e:
         print(f"An error occurred while generating the PDP plot: {e}")
+
 
 # Generates and displays Individual Conditional Expectation (ICE) plots for a specified feature
 # This function visualizes how the model's prediction for individual instances changes as a single feature's value changes.
@@ -216,3 +216,42 @@ def generate_ice_plot(model, X_train, feature_to_plot, n_ice_lines=50, kind='ind
 
     except Exception as e:
         print(f"An error occurred while generating the ICE plot: {e}")
+
+
+##################################################################
+######################## Effect ANALYSIS #########################
+##################################################################
+from scipy import stats
+
+def t_test(sample1, sample2, equal_variance=True):
+  """
+  Performs an independent two-sample t-test.
+
+  Args:
+    sample1 (array-like): The first sample of data.
+    sample2 (array-like): The second sample of data.
+    equal_variance (bool): If True, performs a standard independent t-test that
+      assumes equal population variances. If False, performs Welch's t-test,
+      which does not assume equal population variance. Defaults to True.
+
+  Returns:
+    tuple: A tuple containing the t-statistic and the p-value.
+  """
+  t_statistic, p_value = stats.ttest_ind(a=sample1, b=sample2, equal_var=equal_variance)
+  return t_statistic, p_value
+
+
+def cohen_d(x,y):
+    nx = len(x)
+    ny = len(y)
+    dof = nx + ny - 2
+    return (np.mean(x) - np.mean(y)) / np.sqrt(((nx-1)*np.std(x, ddof=1) ** 2 + (ny-1)*np.std(y, ddof=1) ** 2) / dof)
+
+
+def ba_disease_effect_analysis(df_ba, 
+                               df_disease,
+                               col_ba='BA', 
+                               col_disease='disease', 
+                               col_age='Age',
+                               output_visualization_path=None):
+    return 
