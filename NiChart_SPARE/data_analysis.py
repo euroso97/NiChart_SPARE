@@ -35,7 +35,6 @@ def report_classification_metrics(y_true, y_pred):
     y_pred = np.asarray(y_pred)
     y_true = np.asarray(y_true)
     n_classes = len(np.unique(y_true))
-    #metrics = {}
 
     accuracy = accuracy_score(y_true, y_pred)
     balanced_accuracy = balanced_accuracy_score(y_true, y_pred)
@@ -79,7 +78,13 @@ def report_classification_metrics(y_true, y_pred):
         'ROC-AUC': roc_auc
     }
 
-def get_feature_importance(model, feature_names: list) -> pd.DataFrame:
+
+###################################################################
+########################  FEATURE ANALYSIS ########################
+###################################################################
+
+def get_linear_svm_feature_importance(model, 
+                                      feature_names: list) -> pd.DataFrame:
     """Get feature importance from linear SVM model."""
     if model.kernel != 'linear':
         print("Feature importance is only meaningful for linear kernels")
@@ -105,3 +110,109 @@ def ba_disease_effect_analysis(df,
                                disease_column='DX', 
                                export_figure=False):
     return 
+
+
+# Partial Dependency Plot
+# Generates and displays a Partial Dependence Plot (PDP) for specified features
+# This function visualizes the marginal effect of one or two features on the predicted outcome of a trained machine learning model
+from sklearn.inspection import PartialDependenceDisplay
+import matplotlib.pyplot as plt
+
+def generate_pdp_plot(model, X_train, features_to_plot = ['Age','Sex']):
+    """
+    Args:
+        model: A trained, scikit-learn compatible model (e.g., RandomForest, SVM).
+        X_train (pd.DataFrame): The training data used to fit the model. It's
+                                recommended to use the training set to create
+                                the plot.
+        features_to_plot (list or tuple): A list containing the name(s) of the
+                                           feature(s) to plot.
+                                           - For a one-way PDP, provide one
+                                             feature name: ['FeatureName']
+                                           - For a two-way PDP (heatmap),
+                                             provide two: ['Feature1', 'Feature2']
+    """
+    if not isinstance(X_train, pd.DataFrame):
+        raise TypeError("X_train must be a pandas DataFrame.")
+
+    print(f"Generating PDP for feature(s): {features_to_plot}...")
+
+    # Create the PDP display object
+    # The `from_estimator` method handles the calculations and plotting
+    try:
+        display = PartialDependenceDisplay.from_estimator(
+            estimator=model,
+            X=X_train,
+            features=features_to_plot,
+            kind='average',  # 'average' plots the mean response, 'individual' shows ICE plots
+            grid_resolution=50 # Number of points in the grid for the feature
+        )
+
+        # Customize the plot appearance
+        display.figure_.suptitle(
+            f'Partial Dependence Plot for {", ".join(features_to_plot)}',
+            fontsize=16
+        )
+        display.figure_.subplots_adjust(top=0.9) # Adjust title position
+        plt.show()
+    except Exception as e:
+        print(f"An error occurred while generating the PDP plot: {e}")
+
+# Generates and displays Individual Conditional Expectation (ICE) plots for a specified feature
+# This function visualizes how the model's prediction for individual instances changes as a single feature's value changes.
+def generate_ice_plot(model, X_train, feature_to_plot, n_ice_lines=50, kind='individual'):
+    """
+    Args:
+        model: A trained, scikit-learn compatible model (e.g., RandomForest, SVM).
+        X_train (pd.DataFrame): The training data used to fit the model.
+        feature_to_plot (str): The name of the single feature to plot.
+        n_ice_lines (int): The number of individual ICE lines to draw. A smaller
+                           number is chosen to avoid cluttering the plot. The lines
+                           are sampled randomly from X_train.
+        kind (str): The type of plot to generate.
+                    - 'individual': Shows only the ICE plots.
+                    - 'average': Shows only the average (PDP).
+                    - 'both': Shows ICE plots with the PDP overlaid in a
+                              different color for context.
+    """
+    if not isinstance(X_train, pd.DataFrame):
+        raise TypeError("X_train must be a pandas DataFrame to use feature names.")
+    if not isinstance(feature_to_plot, str):
+        raise TypeError("feature_to_plot must be a single string.")
+
+    print(f"Generating ICE plots for feature: '{feature_to_plot}' (kind='{kind}')...")
+
+    # Randomly sample instances from X_train to plot, to keep the plot readable
+    ice_sample_indices = np.random.choice(X_train.index, size=n_ice_lines, replace=False)
+    X_sample = X_train.loc[ice_sample_indices]
+
+    try:
+        # The from_estimator method handles the calculations and plotting.
+        # We pass the full X_train for calculation but will only display
+        # lines for our X_sample by using the `subsample` parameter.
+        display = PartialDependenceDisplay.from_estimator(
+            estimator=model,
+            X=X_train,
+            features=[feature_to_plot],
+            kind=kind,
+            subsample=X_sample, # Use our random sample for the lines
+            grid_resolution=50,
+            random_state=0,
+            pd_line_kw={"color": "red", "linestyle": "--", "linewidth": 3} # Style for PDP line
+        )
+
+        # --- Customize the plot appearance for better readability ---
+        title_map = {
+            'individual': f'ICE Plots for {feature_to_plot}',
+            'both': f'ICE (blue) and PDP (red) for {feature_to_plot}',
+            'average': f'PDP for {feature_to_plot}'
+        }
+        fig = display.figure_
+        fig.suptitle(title_map.get(kind, ''), fontsize=16, fontweight='bold')
+        fig.subplots_adjust(top=0.9)
+        display.axes_[0,0].set_ylabel('Change in Prediction')
+
+        plt.show()
+
+    except Exception as e:
+        print(f"An error occurred while generating the ICE plot: {e}")

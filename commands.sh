@@ -1,42 +1,40 @@
 # Trainer
 
 NiChart_SPARE -a trainer \
-			  -t AD \
+			  -t CL \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
-			  -tc DX \
+			  -mt SVM \
+			  -sk linear \
+			  -ht True \
+			  -tw True \
+			  -cf 5 \
+			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
 			  -kv MRID \
+			  -tc DX \
 			  -ic Study,SITE \
 			  -cb True \
-			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
-			  -mt SVM \
-			  -sk linear
+			  -v 1
 
 NiChart_SPARE -a trainer \
 			  -t CL \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
-			  -tc DX \
-			  -kv MRID \
-			  -ic Study,SITE \
-			  -cb True \
+			  -mt SVM \
+			  -sk rbf \
+			  -ht False \
+			  -tw True \
+			  -cf 5 \
 			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
-			  -mt SVM \
-			  -sk rbf
-
-NiChart_SPARE -a trainer \
-			  -t BA \
-			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-BA-Harmonized-UKBIOBANK.csv \
-			  -tc Age \
 			  -kv MRID \
+			  -tc DX \
 			  -ic Study,SITE \
 			  -cb True \
-			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-ukbiobank.joblib \
-			  -mt SVM \
-			  -sk linear
+			  -v 1
+			  
 
 # Inference 
 
 NiChart_SPARE -a inference \
-			  -t AD \
+			  -t CL \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-AD-Harmonized.csv \
 			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-AD-new.joblib \
 			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-AD-Harmonized.csv

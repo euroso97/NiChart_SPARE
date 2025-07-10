@@ -10,87 +10,74 @@ from sklearn.svm import SVR
 import numpy as np
 # import pandas as pd
 
-from .util import expspace, is_regression_model
-from .data_prep import load_csv_data, validate_dataframe, preprocess_classification_data, preprocess_regression_data
-from .pipelines import spare_svm_classification, spare_svm_regression#, spare_ad, spare_ba, spare_ht
+from .util import (
+	expspace, 
+    is_regression_model, 
+    get_pipeline_module,
+    get_metadata,
+    get_preprocessors,
+    get_hyperparameter_tuning
+)
+
+from .data_prep import (
+	load_csv_data, 
+	validate_dataframe, 
+	preprocess_classification_data, 
+	preprocess_regression_data
+)
 
 
-def get_pipeline_module(spare_type):
-    """Get the appropriate pipeline module based on SPARE type"""
-    spare_type = spare_type.upper()
-    pipeline_map = {
-        'CL': spare_svm_classification,
-        'RG': spare_svm_regression,
-        # 'AD': spare_ad,
-        # 'BA': spare_ba,
-        # 'HT': spare_ht,
+def get_svm_hyperparameter_grids():
+    """Get hyperparameter grids for different kernels and model types."""
+    classification_grids = {
+        'linear': {
+            "C": expspace([-9, 5])
+        },
+        'rbf': {
+            "C": expspace([-9, 5]),
+            "gamma": ['scale', 'auto'] + expspace([-5, 1])
+        },
+        'poly': {
+            "C": expspace([-9, 5]),
+            'degree': [2, 3, 5],
+            'gamma': ['scale', 'auto']
+        },
+        'sigmoid': {
+            "C": expspace([-9, 5]),
+            'gamma': ['scale', 'auto', 1, 0.1, 0.01],
+            'coef0': [-10, -1, 0, 1, 10]
+        }
     }
-    if spare_type not in pipeline_map:
-        raise ValueError(f"Unsupported SVM SPARE type: {spare_type}")
-    
-    return pipeline_map[spare_type]
-
-
-# def create_svm_training_info(
-#     model = None,
-#     test_metrics: dict = None,
-#     cv_scores: Optional[dict] = None, # {'fold_0': {'metric_0':0.x, 'metric_1':0.x, ...}, 'fold_1': {'metric_0':0.x, ...}, ...}
-#     best_params: Optional[dict] = None,
-#     df: pd.DataFrame = None,
-#     X_features: pd.DataFrame = None,
-#     kernel: str = None,
-#     tune_hyperparameters: bool = None,
-#     final_model: svm = None
-# ) -> dict:
-#     """Create training information dictionary."""
-#     training_info = {
-#         'n_samples': len(df),
-#         'n_features': X_features.shape[1],
-#         'kernel': kernel,
-#         'feature_names': list(X_features.columns),
-#         'hyperparameter_tuned': tune_hyperparameters,
-#         'final_model': final_model
-#     }
-    
-#     # Add test metrics
-#     training_info.update(test_metrics)
-    
-#     # Add CV score and best parameters if available
-#     if cv_scores is not None:
-#         training_info['cv_scores'] = cv_scores
-#     if best_params is not None:
-#         training_info['best_params'] = best_params
-    
-#     return training_info
-
-def save_svm_model(
-    model, 
-    scaler: StandardScaler, 
-    training_info: dict, 
-    filepath: str
-) -> None:
-    """Save the trained model and components to a file."""
-    model_data = {
-        'model': model,
-        'scaler': scaler,
-        'training_info': training_info
+    regression_grids = {
+        'linear': {
+            'C':  expspace([-9, 5]),
+            'epsilon': [0.01, 0.1, 0.2]
+        },
+        'rbf': {
+            'C':  expspace([-9, 5]),
+            'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
+            'epsilon': [0.01, 0.1, 0.2]
+        },
+        'poly': {
+            'C':  expspace([-9, 5]),
+            'degree': [2, 3],
+            'gamma': ['scale', 'auto'],
+            'epsilon': [0.01, 0.1]
+        },
+        'sigmoid': {
+            'C':  expspace([-9, 5]),
+            'gamma': ['scale', 'auto', 0.001, 0.01],
+            'epsilon': [0.01, 0.1]
+        }
     }
-    joblib.dump(model_data, filepath)
-
-
-def load_svm_model(filepath: str) -> Tuple[Any, StandardScaler, dict, Optional[LabelEncoder]]:
-    """Load a trained model and components from a file."""
-    model_data = joblib.load(filepath)
     
-    model = model_data['model']
-    scaler = model_data['scaler']
-    training_info = model_data['training_info']
-    # label_encoder = model_data.get('label_encoder', None)
-    
-    return model, scaler, training_info #, label_encoder
+    return {
+        'classification': classification_grids,
+        'regression': regression_grids
+    }
 
 
-def correct_svr_bias(svr_model, X_train, y_train):
+def correct_linear_svr_bias(svr_model, X_train, y_train):
     """
     Corrects the regularization bias of a trained SVR model by adjusting its intercept.
 
@@ -115,19 +102,14 @@ def correct_svr_bias(svr_model, X_train, y_train):
         gamma=svr_model.gamma,
         coef0=svr_model.coef0,
     )
-
     # Fit the new model to have the same support vectors and coefficients
     corrected_model.fit(X_train, y_train)
-
     # Predict on the training data using the original model
     y_pred_train = svr_model.predict(X_train)
-
     # Calculate the residuals (difference between actual and predicted values)
     residuals = y_train - y_pred_train
-
     # Calculate the mean of the residuals, which is the bias
     bias = np.mean(residuals)
-
     # Correct the intercept of the new model by adding the bias
     corrected_model.intercept_ += bias
 
@@ -145,29 +127,44 @@ def train_svm_model(input_file,
 					train_whole_set, 
 					drop_columns=None):
     
+    model = None
+    meta_data={}
+    preprocessor={}
+    # hyperparameter_tuning={}
+    # cross_validation={}
+    
     """Train model using the pipeline functions"""
     # Load data
     print("Loading training data...")
     df = load_csv_data(input_file, drop_columns=drop_columns)
     
+    # Input validation
+    print(f"Validating input...")
+    validate_dataframe(df, target_column)
     # Validate target column exists
     if target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found. Available columns: {list(df.columns)}")
-    
+    print(f"Success.")
+
+    # Create Metadata for model saving
+    meta_data = get_metadata(spare_type, 
+                             "SVM", 
+                             kernel, 
+                             target_column,
+                             df, 
+                             tune_hyperparameters, 
+                             cv_fold, 
+                             class_balancing, 
+                             train_whole_set)
+
     # Get pipeline module
     pipeline_module = get_pipeline_module(spare_type)
+   
+    # Initialize variables
+    feature_encoder, feature_scaler, target_encoder, target_scaler = (None, None, None, None)
 
-
-    
+    # Regression model (BA - Brain Age)
     if spare_type in ['RG','BA']:
-        model, scaler = None
-        # Regression model (BA - Brain Age)
-
-        # Input validation
-        print(f"Validating input...")
-        validate_dataframe(df, target_column)
-        print(f"Success.")
-        
         # Preprocess data (no label encoding for regression)
         print(f"Preprocessing the input...{df.shape}")
         X, y, feature_encoder, feature_scaler, target_scaler = preprocess_regression_data( 
@@ -175,6 +172,7 @@ def train_svm_model(input_file,
             target_column = target_column, 
             encode_categorical_features=True,
             scale_features=True,
+            scale_target=False,
             for_training=True)
         print(f"Input preprocessing completed.")
 
@@ -192,20 +190,17 @@ def train_svm_model(input_file,
         else:
             # Standard training
             print(f"Training model with default SVR with {kernel} kernel...")
-            model = pipeline_module.train_svr_model(
-                X,
-                y,
-                kernel=kernel,
-                tune_hyperparameters=tune_hyperparameters,
-                cv_fold=cv_fold,
-                get_cv_scores=True,
-                train_whole_set=train_whole_set
-            )
+            # model = pipeline_module.train_svr_model(
+            #     X,
+            #     y,
+            #     kernel=kernel,
+            #     tune_hyperparameters=tune_hyperparameters,
+            #     cv_fold=cv_fold,
+            #     get_cv_scores=True,
+            #     train_whole_set=train_whole_set
+            # )
         
-        if model != None & scaler != None & model_path != None:
-            # Save model
-            save_svm_model(model, scaler, {}, model_path)
-            print(f"Model saved to: {model_path}")
+        
     
     elif spare_type in ['CL','AD']:
         
@@ -220,18 +215,17 @@ def train_svm_model(input_file,
             df, 
             target_column = target_column, 
             encode_categorical_features=True,
-            encode_categorical_target=True,
             scale_features=True,
+            encode_categorical_target=True,
             for_training=True)
         print(f"Input preprocessing completed.")
 
         # Training
         if kernel.lower()=='linear':
             print("Training model with LinearSVR...")
-            model = pipeline_module.train_linearsvc_model(
+            model, ht, cv = pipeline_module.train_linearsvc_model(
                 X,
                 y,
-                kernel=kernel,
                 tune_hyperparameters=tune_hyperparameters,
                 cv_fold=cv_fold,
                 class_balancing=class_balancing,
@@ -239,7 +233,7 @@ def train_svm_model(input_file,
                 train_whole_set=train_whole_set
                 )
         elif kernel.lower() in ['poly', 'rbf', 'sigmoid']:
-            model = pipeline_module.train_svc_model(
+            model, ht, cv = pipeline_module.train_svc_model(
                 X,
                 y,
                 kernel=kernel,
@@ -251,46 +245,98 @@ def train_svm_model(input_file,
                 )
         else:
             print(f"Unsupported SVM kernel entry. Please select among: linear, poly, rbf, sigmoid.")
-        
-        if model != None and feature_scaler != None and model_path != None:
-            # Save model
-            save_svm_model(model, feature_scaler, {}, model_path)
-            print(f"Model saved to: {model_path}")
 
     else:
         print(f"{spare_type} is not supported.")
         sys.exit(1)
 
+    if model != None and model_path != None:
+            # Create info
+            preprocessor = get_preprocessors(feature_encoder, feature_scaler, target_encoder, target_scaler)
+            # Save model
+            save_svm_model(model, 
+                           meta_data, 
+                           preprocessor, 
+                           ht, 
+                           cv, 
+                           model_path)
+            print(f"Model saved to: {model_path}")
+    else:
+        raise("Error: Missing model or output path to save.")
 
-def predict_svm_model(input_file, 
-                      model_path, 
-                      output_file, 
-                      spare_type, 
-                      drop_columns=None):
+
+# Save the trained model and components to a file.
+def save_svm_model(
+    model, # main model (best performing model)
+    meta_data:dict, # spare_type, feature_names, data_description, 
+    preprocessor: dict, # encoder & scaler
+    hyperparameter_tuning:dict,  #  Search strategy, param grid, best params, scoring
+    cross_validation:dict, # strategy, n_splits, scores (each fold)
+    filepath: str # path to save the model
+) -> None:
+    model_data = {
+        'model': model,
+        'meta_data':meta_data,
+        'preprocessor': preprocessor,
+        'hyperparameter_tuning':hyperparameter_tuning,
+        'cross_validation':cross_validation
+    }
+    joblib.dump(model_data, filepath)
+
+
+# Load a trained model and components from a file
+def load_svm_model(filepath: str):
+    model_data = joblib.load(filepath)
+    return model_data['model'], model_data['meta_data'], model_data['preprocessor'], model_data['hyperparameter_tuning'], model_data['cross_validation']
+
+
+def infer_svm_model(input_file, 
+                    model_path, 
+                    spare_type, 
+                    output_file, 
+                    drop_columns=None):
     """Make predictions using trained model"""
     
     # Load data
     print("Loading prediction data...")
     df = load_csv_data(input_file, drop_columns=drop_columns)
-    
-    # Get pipeline module
-    pipeline_module = get_pipeline_module(spare_type)
-    
+
     # Load model
     print("Loading trained model...")
+    model, meta_data, preprocessor, _, _ = load_svm_model(model_path) # TBF
+
+    # Regression model (BA - Brain Age)
+    if spare_type in ['RG','BA']:
+        # # Preprocess data (no label encoding for regression)
+        # print(f"Preprocessing the input...{df.shape}")
+        # X, y, feature_encoder, feature_scaler, target_scaler = preprocess_regression_data( 
+        #     df = df,
+        #     target_column = meta_data['training_data_description']['target_column'],
+        #     feature_encoder = preprocessor['feature_encoder']
+        #     feature_scaler = preprocessor['feature_scaler']
+        #     )
+        # print(f"Input preprocessing completed.")
+        pass        
     
-    if is_regression_model(spare_type):
-        # Regression model
-        model, scaler, info = pipeline_module.load_model(model_path) # TBF
-        predictions = pipeline_module.predict_svr(model, scaler, df)
-    else:
-        # Classification model
-        model, scaler, encoder, info = pipeline_module.load_model(model_path) # TBF
-        predictions = pipeline_module.predict_svc(model, scaler, df, encoder)
+    elif spare_type in ['CL','AD']:
+        # Preprocess data
+        print(f"Preprocessing the input...{df.shape}")
+        X, y, _, _, _ = preprocess_classification_data( 
+            df = df,
+            target_column = meta_data['training_data_description']['target_column'],
+            feature_encoder = preprocessor['feature_encoder']
+            )
+        print(f"Input preprocessing completed.")
+    
+    # Get prediction
+    predictions = model.predict(X)
     
     # Create output dataframe
     output_df = df.copy()
-    output_df['predicted_target'] = predictions
+    output_df['SPARE_'+spare_type] = predictions
+
+    if y != None:
+        output_df['GT_'+spare_type] = y
     
     # Save predictions
     output_df.to_csv(output_file, index=False)

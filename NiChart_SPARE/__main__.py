@@ -11,10 +11,10 @@ Supported SPARE types:
 
 import argparse
 import sys
-# import pandas as pd
-# from .pipelines import spare_ad, spare_ba, spare_ht
-from .svm import train_svm_model, predict_svm_model
-
+from .svm import (
+	train_svm_model, 
+	infer_svm_model
+)
 
 # Entry point & CLI Args
 def main():
@@ -41,13 +41,24 @@ def main():
                        help='SPARE type: BA (Brain Age), AD (Alzheimer\'s), HT (Hypertension)')
     parser.add_argument('-i', '--input', required=True,
                        help='Input CSV file path')
+    # Model specific arguments
+    parser.add_argument('-mt', '--model_type', default='SVM',
+                        help='Type of ML model. Currently supported: SVM')
+    ## SVM specific
+    parser.add_argument('-sk', '--svm_kernel', default='linear',
+                       help='SVM kernel type (linear, poly, rbf, sigmoid)')
+    ## MLP specific
+    ### TBA
     # Train/Test specifci arguments
-    parser.add_argument('-tf', '--train_whole', type=str, default='True',
+    parser.add_argument('-ht', '--hyperparameter_tuning', type=str, default='True',
+                       help='Perform hyperparameter tuning job. Takes a while. (True/False)')
+    parser.add_argument('-tw', '--train_whole', type=str, default='True',
                        help='Train final model on entire dataset (True/False)')
     parser.add_argument('-cf', '--cv_fold', type=int, default=5,
                        help='Number of folds for CV (Default: 5)')
     parser.add_argument('-mo', '--model_output', 
                        help='Output model file path (for training)')
+    # Inference specific arguments
     parser.add_argument('-m', '--model', 
                        help='Input model file path (for inference)')
     parser.add_argument('-o', '--output', 
@@ -57,26 +68,18 @@ def main():
                        help='Name of column indicating unique data points in the input CSV')
     parser.add_argument('-tc', '--target_column', default='target',
                        help='Name of target column in CSV')
-    parser.add_argument('-ic', '--ignore_column', default=None,
+    parser.add_argument('-ic', '--ignore_column', default='',
                        help='Comma-separated list of column names to drop from input CSV')
-    parser.add_argument('-cb', '--class_balancing', default=True,
+    parser.add_argument('-cb', '--class_balancing', type=str, default='True',
                         help='Enable SVM Class Balancing for Training')
-    # Model specific arguments
-    parser.add_argument('-mt', '--model_type', default='SVM',
-                        help='Type of ML model. Currently supported: SVM')
-    ## SVM specific
-    parser.add_argument('-sk', '--svm_kernel', default='linear',
-                       help='SVM kernel type (linear, poly, rbf, sigmoid)')
-    ## MLP specific
-    ### TBA
     # Misc arguments
-    parser.add_argument('-v', '--verbose', type=str, default='False',
-                       help='Enable hyperparameter tuning (True/False)')
+    parser.add_argument('-v', '--verbose', type=int, default=0,
+                       help='Control the amount of output messages (0, 1, 2, 3)')
     
     args = parser.parse_args()
     
     # Convert string arguments to boolean
-    tune_hyperparameters = args.verbose.lower() == 'true'
+    tune_hyperparameters = args.hyperparameter_tuning.lower() == 'true'
     train_whole_set = args.train_whole.lower() == 'true'
     class_balancing = args.class_balancing.lower() == 'true'
     
@@ -92,7 +95,8 @@ def main():
         if args.action == 'trainer':
             if not args.model_output:
                 raise ValueError("Model output path (-mo) is required for training")
-            
+            print(f"Training {args.model_type} model")
+
             if args.model_type == 'SVM':
                 train_svm_model(
                     input_file=args.input,
@@ -119,12 +123,11 @@ def main():
                 raise ValueError("Output path (-o) is required for inference")
             # Run inference
             if args.model_type == 'SVM':
-                predict_svm_model(
+                infer_svm_model(
                     input_file=args.input,
                     model_path=args.model,
                     output_file=args.output,
-                    spare_type=args.type,
-                    drop_columns=ignore_columns
+                    spare_type=args.type
                 )
             elif args.model_type == 'MLP':
                 print("MLP is coming soon!")
