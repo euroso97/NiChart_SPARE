@@ -3,13 +3,15 @@
 Implementation of SPARE scores calculation from Brain ROI Volumes ([NiChart_DLMUSE](https://github.com/CBICA/NiChart_DLMUSE)) and White-Matter-Lesion volumes ([NiChart_DLWMLS](https://github.com/CBICA/NiChart_DLWMLS)) as main features.
 
 ### Supported SPARE scores (as of June 2025):
-- SPARE-BA: Brain Age
+- SPARE-CL : Any classfication
+- SPARE-RG : Any regression
+<!-- - SPARE-BA: Brain Age
 - SPARE-AD: Alzheimer's 
 - SPARE-HT: Hypertension
 - SPARE-HL: Hyperlipidemia
 - SPARE-T2B: Diabetes (Type 2)
 - SPARE-SM: Smoking
-- SPARE-OB: Obesity
+- SPARE-OB: Obesity -->
 
 ## Installation
 
