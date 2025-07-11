@@ -265,8 +265,10 @@ def ba_effect_analysis(df_ba = None,
     cohens_d = cohen_d(df_merged['BA_Gap'],df_merged[col_disease])
     t,p = t_test(df_merged['BA_Gap'],df_merged[col_disease])
 
+    plt.figure()
+    sns.displot(data=df_merged,x='Age_Delta',hue='disease', kind="kde")
+    plt.title(f"Cohen's d: {cohens_d}, t: {t}, p: {p}")
     if os.path.exists(output_visualization_path):
-        plt.figure()
-        sns.displot(data=df_merged,x='Age_Delta',hue='disease', kind="kde")
-        plt.title("Cohen's d: %f" % cohens_d)
         plt.savefig(output_visualization_path)
+    else:
+        plt.show()

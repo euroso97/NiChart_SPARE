@@ -44,10 +44,10 @@ NiChart_SPARE -a trainer \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-CONTROLNOOVERLAP-Harmonized-new.csv \
 			  -mt SVM \
 			  -sk linear \
-			  -ht False \
+			  -ht True \
 			  -tw True \
 			  -cf 5 \
-			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new.joblib \
+			  -mo /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-HT-linear.joblib \
 			  -kv MRID \
 			  -tc Age \
 			  -ic Study,SITE,Sex \
