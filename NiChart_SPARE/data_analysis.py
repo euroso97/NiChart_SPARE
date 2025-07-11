@@ -247,11 +247,26 @@ def cohen_d(x,y):
     dof = nx + ny - 2
     return (np.mean(x) - np.mean(y)) / np.sqrt(((nx-1)*np.std(x, ddof=1) ** 2 + (ny-1)*np.std(y, ddof=1) ** 2) / dof)
 
+import os
+import seaborn as sns
+# For disease effect analysis. 
+def ba_effect_analysis(df_ba = None, 
+                       col_ba='SPARE_BA', 
+                       df_disease = None,
+                       col_disease='disease', 
+                       df_covars = None,
+                       key_variable='MRID',
+                       col_ref_age='Age',
+                       output_visualization_path=None):
+    df_merged = df_covars[key_variable,col_ref_age].merge(df_ba[[key_variable,col_ba]],on=key_variable,how='inner')
+    df_merged = df_merged.merge(df_disease[[key_variable,col_disease]],on=key_variable,how='inner').dropna().reset_index(drop=True)
+    df_merged['BA_Gap'] = df_merged[col_ba] - df_merged[col_ref_age]
+    
+    cohens_d = cohen_d(df_merged['BA_Gap'],df_merged[col_disease])
+    t,p = t_test(df_merged['BA_Gap'],df_merged[col_disease])
 
-def ba_disease_effect_analysis(df_ba, 
-                               df_disease,
-                               col_ba='BA', 
-                               col_disease='disease', 
-                               col_age='Age',
-                               output_visualization_path=None):
-    return 
+    if os.path.exists(output_visualization_path):
+        plt.figure()
+        sns.displot(data=df_merged,x='Age_Delta',hue='disease', kind="kde")
+        plt.title("Cohen's d: %f" % cohens_d)
+        plt.savefig(output_visualization_path)
