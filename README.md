@@ -94,7 +94,6 @@ Coming Soon (Wiki-page)
 
 
   # Notes
-
   - data_prep.py : subsets data for training/cross-validation and also perform additional processes including standardscaling, adjustment of Age/Sex/ICV effects 
 
   - pipelines/spare_(BIOMARKER).py : (Biomarker) specific training pipelines

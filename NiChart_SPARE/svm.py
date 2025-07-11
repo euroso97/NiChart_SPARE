@@ -6,6 +6,7 @@ import joblib
 # from typing import Tuple, Optional, Dict, Any
 # from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.svm import LinearSVR
+from sklearn.linear_model import LinearRegression
 
 import numpy as np
 import pandas as pd
@@ -86,6 +87,7 @@ def get_svm_hyperparameter_grids():
 def correct_linearsvr_bias(svr_model, X_train, y_train):
     """
     Corrects the regularization bias of a trained SVR model by adjusting its intercept.
+    Use LinearRegressor for the delta y calculation.
 
     The regularization in SVR can introduce a systematic bias in the predictions.
     This function corrects this bias by calculating the mean of the residuals
@@ -99,21 +101,16 @@ def correct_linearsvr_bias(svr_model, X_train, y_train):
     Returns:
         A new SVR model object with the corrected intercept.
     """
-    # Create a new SVR model to avoid modifying the original one
-    corrected_model = LinearSVR(
-        C=svr_model.C,
-        epsilon=svr_model.epsilon,
-        kernel=svr_model.kernel,
-        degree=svr_model.degree,
-        gamma=svr_model.gamma,
-        coef0=svr_model.coef0,
-    )
-    # Fit the new model to have the same support vectors and coefficients
-    corrected_model.fit(X_train, y_train)
+    # Correction model
+    corrector = LinearRegression()
+    corrector.fit(X_train,y_train)
     # Predict on the training data using the original model
-    y_pred_train = svr_model.predict(X_train)
+    y_pred_train = corrector.predict(X_train)
     # Calculate the residuals (difference between actual and predicted values)
     residuals = y_train - y_pred_train
+    
+    # Create a new SVR model to avoid modifying the original one
+    corrected_model = svr_model
     # Calculate the mean of the residuals, which is the bias
     bias = np.mean(residuals)
     # Correct the intercept of the new model by adding the bias
