@@ -47,7 +47,8 @@ def train_svr_model(
     # Initialize base parameters
     if kernel == 'linear_fast':
         print(f"Training model with LinearSVR...")
-        base_params = {'max_iter': 100000,
+        base_params = {'fit_intercept':True,
+                       'max_iter': 1000000,
                        'verbose' : verbose > 1}
     else:
         print(f"Training model with default SVR with {kernel} kernel...")
@@ -115,14 +116,12 @@ def train_svr_model(
             # Train model with current parameters
             if kernel == 'linear_fast':
                 model = LinearSVR(**base_params)
+                model.fit(X_train, y_train)
                 print("Correcting bias")
                 model = correct_linearsvr_bias(model,X,y)
-                model.fit(X_train, y_train)
             else:
                 model = SVR(**base_params)
                 model.fit(X_train, y_train)
-            
-            model.fit(X_train, y_train)
             
             # Predict
             y_pred = model.predict(X_test)

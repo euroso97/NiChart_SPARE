@@ -43,7 +43,7 @@ NiChart_SPARE -a trainer \
 			  -t RG \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-CONTROLNOOVERLAP-Harmonized-new.csv \
 			  -mt SVM \
-			  -sk linear \
+			  -sk linear_fast \
 			  -ht True \
 			  -tw True \
 			  -cf 5 \
@@ -57,15 +57,15 @@ NiChart_SPARE -a trainer \
 NiChart_SPARE -a inference \
 			  -t RG \
 			  -i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-CONTROLNOOVERLAP-Harmonized-new.csv \
-			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new.joblib \
-			  -o /home/kylebaik/Packages/NiChart_SPARE/Data/Output_SPARE-BA-Harmonized-new.csv \
+			  -m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-HT-linear_fast.joblib \
+			  -o /home/kylebaik/Packages/NiChart_SPARE/Output/Output_SPARE-BA-Harmonized-CONTROLNOOVERLAP.csv \
 			  -kv MRID
 
-for disease in AD BMI DIABETES HYPERTENSION SMOKING; do
+for disease in CONTROL AD BMI DIABETES HYPERTENSION SMOKING; do
 	NiChart_SPARE -a inference \
 				-t RG \
 				-i /home/kylebaik/Packages/NiChart_SPARE/Data/SPARE-${disease}-Harmonized-new.csv \
-				-m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new.joblib \
+				-m /home/kylebaik/Packages/NiChart_SPARE/Models/SPARE-BA-new-HT-linear_fast.joblib \
 				-o /home/kylebaik/Packages/NiChart_SPARE/Output/Output_SPARE-BA-Harmonized-Diease_${disease}.csv \
 				-kv MRID
 

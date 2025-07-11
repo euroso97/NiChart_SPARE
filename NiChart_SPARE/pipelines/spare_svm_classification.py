@@ -47,13 +47,15 @@ def train_svc_model(
     # Initialize base parameters
     if kernel == 'linear_fast':
         print(f"Training model with LinearSVC...")
-        base_params = {'random_state': random_state,
+        base_params = {'fit_intercept':True,
+                       'random_state': random_state,
                        'verbose' : verbose > 1}
     else:
         print(f"Training model with default SVC with {kernel} kernel...")
         base_params = {'kernel': kernel, 
                        'random_state': random_state,
                        'verbose' : verbose > 1}
+    
     # Overwrite base parameters with svc_params
     base_params.update(svc_params)
     

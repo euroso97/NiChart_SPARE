@@ -102,17 +102,16 @@ def correct_linearsvr_bias(svr_model, X_train, y_train):
         A new SVR model object with the corrected intercept.
     """
     # Correction model
-    corrector = LinearRegression()
+    corrector = LinearRegression(fit_intercept=True)
     corrector.fit(X_train,y_train)
     # Predict on the training data using the original model
     y_pred_train = corrector.predict(X_train)
     # Calculate the residuals (difference between actual and predicted values)
     residuals = y_train - y_pred_train
-    
-    # Create a new SVR model to avoid modifying the original one
-    corrected_model = svr_model
     # Calculate the mean of the residuals, which is the bias
     bias = np.mean(residuals)
+    # Create a new SVR model to avoid modifying the original one
+    corrected_model = svr_model
     # Correct the intercept of the new model by adding the bias
     corrected_model.intercept_ += bias
 
