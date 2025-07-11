@@ -38,17 +38,17 @@ def get_svm_hyperparameter_grids():
         },
         'rbf': {
             "C": expspace([-9, 5]),
-            "gamma": ['scale', 'auto'] + expspace([-5, 1])
+            "gamma": ['scale', 'auto']
         },
         'poly': {
             "C": expspace([-9, 5]),
-            'degree': [2, 3, 5],
+            'degree': [2, 3],
             'gamma': ['scale', 'auto']
         },
         'sigmoid': {
             "C": expspace([-9, 5]),
-            'gamma': ['scale', 'auto', 1, 0.1, 0.01],
-            'coef0': [-10, -1, 0, 1, 10]
+            'gamma': ['scale', 'auto'],
+            'coef0': [-1, 0, 1]
         }
     }
     regression_grids = {
@@ -62,7 +62,7 @@ def get_svm_hyperparameter_grids():
         },
         'rbf': {
             'C':  expspace([-9, 5]),
-            'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
+            'gamma': ['scale', 'auto'],
             'epsilon': [0.01, 0.1, 0.2]
         },
         'poly': {
@@ -73,7 +73,7 @@ def get_svm_hyperparameter_grids():
         },
         'sigmoid': {
             'C':  expspace([-9, 5]),
-            'gamma': ['scale', 'auto', 0.001, 0.01],
+            'gamma': ['scale', 'auto'],
             'epsilon': [0.01, 0.1]
         }
     }
