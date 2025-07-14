@@ -15,7 +15,7 @@ Implementation of SPARE scores calculation from Brain ROI Volumes ([NiChart_DLMU
 
 ## Installation
 
-##### Using PyPi
+##### ~~Using PyPi~~ (Currently unsupported, TBA)
 ```bash
 pip install NiChart_SPARE
 ```
@@ -28,7 +28,7 @@ pip install -e .
 ```
 
 ### Example Usage
-##### Training
+##### Training a classifier
 ```bash
 NiChart_SPARE -a trainer \
               -t CL \
@@ -40,11 +40,12 @@ NiChart_SPARE -a trainer \
               -cf 5 \
               -mo output_model.joblib \
               -kv MRID \
-              -tc disease \
+              -tc clf_target_column_name \
               -ic Study,SITE,Sex \
               -cb False \
               -v 1
 ```
+##### Training a regressor
 ```bash
 NiChart_SPARE -a trainer \
               -t RG \
@@ -56,7 +57,7 @@ NiChart_SPARE -a trainer \
               -cf 5 \
               -mo output_model.joblib \
               -kv MRID \
-              -tc Age \
+              -tc rg_target_column_name \
               -ic Study,SITE,Sex \
               -v 1
 ```
@@ -64,6 +65,16 @@ NiChart_SPARE -a trainer \
 ```bash
 NiChart_SPARE -a inference \
               -t RG \
+              -i test_input \
+              -m model.joblib \
+              -o test_output.csv \
+              -kv MRID
+                
+```
+
+```bash
+NiChart_SPARE -a inference \
+              -t CL \
               -i test_input \
               -m model.joblib \
               -o test_output.csv \
