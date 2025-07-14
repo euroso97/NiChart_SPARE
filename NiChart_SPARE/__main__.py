@@ -8,7 +8,7 @@ Supported SPARE types:
     - AD (Alzheimer's)
     - CVMs: HT (Hypertension), HL (Hyperlipidemia), T2B (Diabetes), SM (Smoking), OB (Obesity)
 """
-
+import os
 import argparse
 import sys
 from .svm import (
@@ -124,6 +124,10 @@ def main():
                 raise ValueError("Model path (-m) is required for inference")
             if not args.output:
                 raise ValueError("Output path (-o) is required for inference")
+            # Create output directory if it doesn't exist
+            if not os.path.exists(os.path.dirname(args.output)):
+                print(f"Output directory does not exist. Creating f{os.path.dirname(args.output)}...")
+                os.mkdir(os.path.dirname(args.output))
             # Run inference
             if args.model_type == 'SVM':
                 infer_svm_model(
