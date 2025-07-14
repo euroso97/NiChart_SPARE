@@ -35,8 +35,8 @@ def main():
     )
     
     # Required arguments
-    parser.add_argument('-a', '--action', required=True, choices=['trainer', 'inference'],
-                       help='Action to perform: trainer or inference')
+    parser.add_argument('-a', '--action', required=True, choices=['trainer', 'inference', 'analysis'],
+                       help='Action to perform: trainer, inference, or analysis')
     parser.add_argument('-t', '--type', required=True, 
                        help='SPARE type: BA (Brain Age), AD (Alzheimer\'s), HT (Hypertension)')
     parser.add_argument('-i', '--input', required=True,
@@ -63,6 +63,9 @@ def main():
                        help='Input model file path (for inference)')
     parser.add_argument('-o', '--output', 
                        help='Output CSV file path (for inference)')
+    # Analysis specific arguments
+    parser.add_arguments('-di', '--disease', type=str, default='AD',
+                         help='Name of column indicating unique disease')
     # data preprocessing arguments
     parser.add_argument('-kv', '--key_variable',
                        help='Name of column indicating unique data points in the input CSV')
