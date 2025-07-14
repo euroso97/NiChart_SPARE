@@ -85,6 +85,12 @@ NiChart_SPARE -a inference \
 
 Coming Soon (Wiki-page)
 
+Supported SVM kernels ("-k" or "--kernel" argument):
+- linear_fast (prone to bias)
+- linear
+- rbf
+- poly
+
 ## Publications
 
 - SPARE-BA
