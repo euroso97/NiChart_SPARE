@@ -128,6 +128,7 @@ def train_svm_model(input_file,
                     cv_fold,
                     class_balancing,
 					train_whole_set, 
+                    bias_correction,
 					drop_columns=None,
                     verbose=1):
     
@@ -191,6 +192,7 @@ def train_svm_model(input_file,
                 cv_fold=cv_fold,
                 get_cv_scores=True,
                 train_whole_set=train_whole_set,
+                bias_correction=bias_correction,
                 verbose=verbose
                 )
         else:

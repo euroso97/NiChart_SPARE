@@ -47,6 +47,8 @@ def main():
     ## SVM specific
     parser.add_argument('-sk', '--svm_kernel', default='linear',
                        help='SVM kernel type (linear, poly, rbf, sigmoid)')
+    parser.add_argument('-bc', '--bias_correction', type=str, default='False',
+                       help='Perform bias correction for linearSVM (linear_fast) models.')
     ## MLP specific
     ### TBA
     # Train/Test specifci arguments
@@ -85,6 +87,7 @@ def main():
     tune_hyperparameters = args.hyperparameter_tuning.lower() == 'true'
     train_whole_set = args.train_whole.lower() == 'true'
     class_balancing = args.class_balancing.lower() == 'true'
+    bias_correction = args.bias_correction.lower() == 'true'
     
     # Parse columns to drop
     if ',' in args.ignore_column:
@@ -111,6 +114,7 @@ def main():
                     cv_fold=args.cv_fold,
                     class_balancing=class_balancing,
                     train_whole_set=train_whole_set,
+                    bias_correction=bias_correction,
                     drop_columns=ignore_columns + [args.key_variable],
                     verbose=args.verbose
                 )
