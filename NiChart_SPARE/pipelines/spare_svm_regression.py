@@ -34,6 +34,7 @@ def train_svr_model(
     get_cv_scores: bool = True,
     train_whole_set: bool = True,
     random_state: int = 42, # for replication
+    bias_correction: bool = False,
     verbose: int = 1,
     **svc_params
     ):
@@ -117,8 +118,9 @@ def train_svr_model(
             if kernel == 'linear_fast':
                 model = LinearSVR(**base_params)
                 model.fit(X_train, y_train)
-                print("Correcting bias")
-                model = correct_linearsvr_bias(model,X,y)
+                if bias_correction:
+                    print("Correcting bias")
+                    model = correct_linearsvr_bias(model,X,y)
             else:
                 model = SVR(**base_params)
                 model.fit(X_train, y_train)
@@ -142,8 +144,9 @@ def train_svr_model(
         if kernel == 'linear_fast':
             model = LinearSVR(**base_params)
             model.fit(X, y)
-            print("Correcting bias")
-            model = correct_linearsvr_bias(model,X,y)
+            if bias_correction:
+                print("Correcting bias")
+                model = correct_linearsvr_bias(model,X,y)
         else:
             model = SVR(**base_params)
             model.fit(X, y)

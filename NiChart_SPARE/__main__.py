@@ -111,7 +111,8 @@ def main():
                     cv_fold=args.cv_fold,
                     class_balancing=class_balancing,
                     train_whole_set=train_whole_set,
-                    drop_columns=ignore_columns + [args.key_variable]
+                    drop_columns=ignore_columns + [args.key_variable],
+                    verbose=args.verbose
                 )
             elif args.model_type == 'MLP':
                 print("MLP is coming soon!")

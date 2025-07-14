@@ -127,7 +127,8 @@ def train_svm_model(input_file,
                     cv_fold,
                     class_balancing,
 					train_whole_set, 
-					drop_columns=None):
+					drop_columns=None,
+                    verbose=1):
     
     model = None
     meta_data={}
@@ -187,7 +188,8 @@ def train_svm_model(input_file,
                 tune_hyperparameters=tune_hyperparameters,
                 cv_fold=cv_fold,
                 get_cv_scores=True,
-                train_whole_set=train_whole_set
+                train_whole_set=train_whole_set,
+                verbose=verbose
                 )
         else:
             print(f"Unsupported SVM kernel entry. Please select among: linear, poly, rbf, sigmoid.")
@@ -299,7 +301,7 @@ def infer_svm_model(input_file,
 
     # Regression task
     if spare_type in ['RG','BA']:
-        X, y, _, _, _ = preprocess_regression_data( 
+        X, y, _, _ = preprocess_regression_data( 
             df = df.drop([key_variable],axis=1),
             target_column = meta_data['training_data_description']['target_column'],
             feature_encoder = preprocessor['feature_encoder'],
@@ -312,7 +314,7 @@ def infer_svm_model(input_file,
     elif spare_type in ['CL','AD']:
         # Preprocess data
         
-        X, y, _, _, _ = preprocess_classification_data( 
+        X, y, _, _ = preprocess_classification_data( 
             df = df.drop([key_variable],axis=1),
             target_column = meta_data['training_data_description']['target_column'],
             feature_encoder = preprocessor['feature_encoder'],
