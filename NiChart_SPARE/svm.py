@@ -163,18 +163,18 @@ def train_svm_model(input_file,
     pipeline_module = get_pipeline_module(spare_type)
    
     # Initialize variables
-    feature_encoder, feature_scaler, target_encoder, target_scaler = (None, None, None, None)
+    feature_encoder, feature_scaler, target_encoder = (None, None, None)
 
     # Regression tasks
     if spare_type in ['RG','BA']:
         # Preprocess data (no label encoding for regression)
         print(f"Preprocessing the input...{df.shape}")
-        X, y, feature_encoder, feature_scaler, target_scaler = preprocess_regression_data( 
+        X, y, feature_encoder, feature_scaler = preprocess_regression_data( 
             df, 
             target_column = target_column, 
             encode_categorical_features=True,
             scale_features=True,
-            scale_target=False,
+            # scale_target=False,
             for_training=True)
         print(f"Input preprocessing completed.")
 
@@ -202,12 +202,12 @@ def train_svm_model(input_file,
 
         # Preprocess the input df, split into X, y
         print(f"Preprocessing the input...{df.shape}")
-        X, y, feature_encoder, feature_scaler, target_encoder = preprocess_classification_data(
+        X, y, feature_encoder, feature_scaler = preprocess_classification_data(
             df, 
             target_column = target_column, 
             encode_categorical_features=True,
             scale_features=True,
-            encode_categorical_target=True,
+            # encode_categorical_target=False,
             for_training=True)
         print(f"Input preprocessing completed.")
 
@@ -232,7 +232,7 @@ def train_svm_model(input_file,
 
     if model != None and model_path != None:
             # Create info
-            preprocessor = get_preprocessors(feature_encoder, feature_scaler, target_encoder, target_scaler)
+            preprocessor = get_preprocessors(feature_encoder, feature_scaler)
             # Save model
             save_svm_model(model, 
                            meta_data, 

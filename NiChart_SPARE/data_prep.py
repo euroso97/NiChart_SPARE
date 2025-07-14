@@ -63,17 +63,17 @@ def preprocess_regression_data(
     target_column: str,
     encode_categorical_features: bool = True,
     scale_features: bool = True,
-    scale_target: bool = False,
+    # scale_target: bool = False,
     for_training: bool = True,
     feature_encoder: LabelEncoder = None, # for inference
     feature_scaler: StandardScaler = None, # for inference
-    target_scaler: StandardScaler = None # for inference
+    # target_scaler: StandardScaler = None # for inference
 ):
     X, y = (None, None)
-    # feature_encoder, feature_scaler, target_scaler = (None, None, None)
-
+    
     if for_training:
         """Preprocess data for training: handle missing values and encode categorical featurs & targets."""
+        feature_encoder, feature_scaler = (None, None)
         df = df.dropna(subset=[target_column]) # Remove rows with missing target values
         
         # Separate features and target
@@ -90,10 +90,10 @@ def preprocess_regression_data(
             feature_scaler = StandardScaler()
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
 
-        # Scale target values if they're numeric and scaling is requested
-        if scale_target and pd.api.types.is_numeric_dtype(y):
-            target_scaler = StandardScaler()
-            y = target_scaler.fit_transform(y)
+        # # Scale target values if they're numeric and scaling is requested
+        # if scale_target and pd.api.types.is_numeric_dtype(y):
+        #     target_scaler = StandardScaler()
+        #     y = target_scaler.fit_transform(y)
 
     else:
         """Preprocess data for inference: handle missing values and encode categorical features."""
@@ -112,7 +112,7 @@ def preprocess_regression_data(
         if feature_scaler != None:
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
     
-    return X, y, feature_encoder, feature_scaler, target_scaler
+    return X, y, feature_encoder, feature_scaler #, target_scaler
 
 
 # Prepare data for classifier training and testing
@@ -122,11 +122,11 @@ def preprocess_classification_data(
     target_column: str,
     encode_categorical_features: bool = True,
     scale_features: bool = True,
-    encode_categorical_target: bool = True,
+    # encode_categorical_target: bool = False,
     for_training: bool = True,
     feature_encoder: LabelEncoder = None, # for inference
     feature_scaler: StandardScaler = None, # for inference
-    target_encoder: StandardScaler = None # for inference
+    # target_encoder: StandardScaler = None # for inference
 ):
     X, y = (None, None)
     
@@ -135,7 +135,7 @@ def preprocess_classification_data(
     y = df[target_column]
 
     if for_training == True:
-        feature_encoder, feature_scaler, target_encoder = (None, None, None)
+        feature_encoder, feature_scaler = (None, None)
         """Preprocess data for training: handle missing values and encode categorical featurs & targets."""
         df = df.dropna(subset=[target_column]) # Remove rows with missing target values
         
@@ -149,11 +149,11 @@ def preprocess_classification_data(
             feature_scaler = StandardScaler()
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
 
-        # Encode target labels if they're not numeric and encoding is requested
-        if encode_categorical_target and y.dtype == 'object':
-            print(f"Encoding the categorical label")
-            target_encoder = LabelEncoder()
-            y = target_encoder.fit_transform(y)
+        # # Encode target labels if they're not numeric and encoding is requested
+        # if encode_categorical_target and y.dtype == 'object':
+        #     print(f"Encoding the categorical label")
+        #     target_encoder = LabelEncoder()
+        #     y = target_encoder.fit_transform(y)
     
     else:
         """Preprocess data for inference: handle missing values and encode categorical features."""
@@ -171,9 +171,8 @@ def preprocess_classification_data(
         
         if feature_scaler != None:
             X = pd.DataFrame(feature_scaler.fit_transform(X), columns=X.columns, index=X.index)
-        
-    
-    return X, y, feature_encoder, feature_scaler, target_encoder
+
+    return X, y, feature_encoder, feature_scaler #, target_encoder
 
 
 # def apply_cvm_residualization(df: pd.DataFrame, 

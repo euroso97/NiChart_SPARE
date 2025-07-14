@@ -55,14 +55,10 @@ def get_metadata(spare_type,
             }
 
 def get_preprocessors(feature_encoder, 
-                      feature_scaler, 
-                      target_encoder, 
-                      target_scaler):
+                      feature_scaler):
     return {
                 'feature_encoder':feature_encoder,
-                'feature_scaler':feature_scaler,
-                'target_encoder':target_encoder,
-                'target_scaler':target_scaler
+                'feature_scaler':feature_scaler
             }
 
 def get_hyperparameter_tuning(tuner, 
