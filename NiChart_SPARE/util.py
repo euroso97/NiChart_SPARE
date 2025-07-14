@@ -26,6 +26,7 @@ def get_pipeline_module(spare_type):
 # ############# Model Saving ################
 
 def get_metadata(spare_type, 
+                 package_version,
                  model_type, 
                  kernel, 
                  target_column,
@@ -36,6 +37,7 @@ def get_metadata(spare_type,
                  train_whole_set):
     return {
             "spare_type":spare_type,
+            "package_version":package_version,
             "model_description":{
                 "model_type":model_type,
                 "kernel":kernel

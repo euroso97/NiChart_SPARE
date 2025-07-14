@@ -3,6 +3,7 @@ Sklearn SVM specific functions
 """
 import sys
 import joblib
+from importlib.metadata import version
 # from typing import Tuple, Optional, Dict, Any
 # from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.svm import LinearSVR
@@ -13,7 +14,6 @@ import pandas as pd
 
 from .util import (
 	expspace, 
-    is_regression_model, 
     get_pipeline_module,
     get_metadata,
     get_preprocessors
@@ -26,6 +26,7 @@ from .data_prep import (
 	preprocess_regression_data
 )
 
+VERSION = version("NiChart_SPARE")
 
 def get_svm_hyperparameter_grids():
     """Get hyperparameter grids for different kernels and model types."""
@@ -151,6 +152,7 @@ def train_svm_model(input_file,
 
     # Create Metadata for model saving
     meta_data = get_metadata(spare_type, 
+                             "0.1.0",
                              "SVM", 
                              kernel, 
                              target_column,
