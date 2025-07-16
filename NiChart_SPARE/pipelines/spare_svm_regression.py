@@ -22,8 +22,6 @@ from ..util import (
 
 from ..svm import (
     get_svm_hyperparameter_grids,
-    # correct_linearsvr_bias,
-    # get_linearsvr_bias
 )
 
 # Accepts dataframe and target_column as input along with other parameters to perform an svc training
